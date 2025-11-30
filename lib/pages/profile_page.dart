@@ -1,0 +1,671 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../components/bottom_nav_bar.dart';
+
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({Key? key}) : super(key: key);
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String selectedLanguage = 'Français';
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+
+  bool isLoading = true;
+  String? profileImageUrl;
+  final ImagePicker _picker = ImagePicker();
+  bool isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // Try to load from Firestore first
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data()!;
+          setState(() {
+            nameController.text = data['nom'] ?? '';
+            emailController.text = data['email'] ?? user.email ?? '';
+            phoneController.text = data['telephone'] ?? '';
+            profileImageUrl = data['profileImageUrl'];
+            selectedLanguage = data['selectedLanguage'] ?? 'Français';
+          });
+
+          // Save to SharedPreferences for offline access
+          await prefs.setString('nom', nameController.text);
+          await prefs.setString('email', emailController.text);
+          await prefs.setString('telephone', phoneController.text);
+          await prefs.setString('profileImageUrl', profileImageUrl ?? '');
+          await prefs.setString('selectedLanguage', selectedLanguage);
+        } else {
+          // Load from SharedPreferences if Firestore doc doesn't exist
+          setState(() {
+            nameController.text = prefs.getString('nom') ?? '';
+            emailController.text = prefs.getString('email') ?? user.email ?? '';
+            phoneController.text = prefs.getString('telephone') ?? '';
+            profileImageUrl = prefs.getString('profileImageUrl');
+            selectedLanguage = prefs.getString('selectedLanguage') ?? 'Français';
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur de chargement: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      // Pick image from gallery
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() {
+        isUploading = true;
+      });
+
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+
+      // Create a reference to Firebase Storage
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images')
+          .child('${user.uid}.jpg');
+
+      // Upload the file
+      final File imageFile = File(image.path);
+      final uploadTask = await storageRef.putFile(imageFile);
+
+      // Get the download URL
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      // Update Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+        'profileImageUrl': downloadUrl,
+      }, SetOptions(merge: true));
+
+      // Save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profileImageUrl', downloadUrl);
+
+      // Update the UI
+      setState(() {
+        profileImageUrl = downloadUrl;
+        isUploading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo de profil mise à jour avec succès'),
+            backgroundColor: Color(0xFFA2B84E),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        isUploading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du téléchargement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error uploading image: $e');
+    }
+  }
+
+  Future<void> _saveUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+
+      setState(() {
+        isLoading = true;
+      });
+
+      // Update Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+        'nom': nameController.text.trim(),
+        'email': emailController.text.trim(),
+        'telephone': phoneController.text.trim(),
+        'selectedLanguage': selectedLanguage,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Update SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nom', nameController.text.trim());
+      await prefs.setString('email', emailController.text.trim());
+      await prefs.setString('telephone', phoneController.text.trim());
+      await prefs.setString('selectedLanguage', selectedLanguage);
+
+      setState(() {
+        isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Informations modifiées avec succès'),
+            backgroundColor: Color(0xFFA2B84E),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la mise à jour: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print('Error saving user data: $e');
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Clear user data from SharedPreferences
+      await prefs.clear();
+
+      // Sign out from Firebase
+      await FirebaseAuth.instance.signOut();
+
+      // Navigate to login page
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      print('Error during logout: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la déconnexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFFFF8EC),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFD19C64),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8EC),
+      body: Stack(
+        children: [
+          // Main content
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                // Header with curved background
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Curved background
+                    Container(
+                      width: double.infinity,
+                      height: 326,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF5C98F),
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.elliptical(176, 138),
+                          bottomRight: Radius.elliptical(176, 138),
+                        ),
+                      ),
+                    ),
+
+                    // Back button
+                    Positioned(
+                      left: 25,
+                      top: 36,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Image.network(
+                          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F33a3bbb97c5a949d4419852f6eb37cf8e75609ebimage%2021.png?alt=media&token=18d9c711-c8e5-4a4c-bed0-2a2328d3bf1f',
+                          width: 18,
+                          height: 18,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.arrow_back,
+                              color: Color(0xFF3B2E1A),
+                              size: 18,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // Profile title
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 31,
+                      child: Center(
+                        child: Text(
+                          'Profile',
+                          style: GoogleFonts.getFont(
+                            'Roboto',
+                            color: const Color(0xFF3B2E1A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Profile picture
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 108,
+                      child: Center(
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 99,
+                              height: 99,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(50),
+                                image: profileImageUrl != null && profileImageUrl!.isNotEmpty
+                                    ? DecorationImage(
+                                  image: NetworkImage(profileImageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                                    : null,
+                              ),
+                              child: profileImageUrl == null || profileImageUrl!.isEmpty
+                                  ? Icon(
+                                Icons.person,
+                                size: 50,
+                                color: Colors.grey.shade400,
+                              )
+                                  : null,
+                            ),
+                            if (isUploading)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black45,
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: GestureDetector(
+                                onTap: isUploading ? null : _pickAndUploadImage,
+                                child: Container(
+                                  width: 25,
+                                  height: 25,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12.5),
+                                    border: Border.all(
+                                      color: const Color(0xFFD19C64),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      isUploading ? Icons.hourglass_empty : Icons.add,
+                                      size: 16,
+                                      color: const Color(0xFFD19C64),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Name and email
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 220,
+                      child: Column(
+                        children: [
+                          Text(
+                            nameController.text.isNotEmpty
+                                ? nameController.text
+                                : 'Nom',
+                            style: GoogleFonts.getFont(
+                              'Roboto',
+                              color: const Color(0xFF3B2E1A),
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            emailController.text.isNotEmpty
+                                ? emailController.text
+                                : 'Email',
+                            style: GoogleFonts.getFont(
+                              'Roboto',
+                              color: const Color(0xFF83735C),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 30),
+
+                // Language selection section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Choisir langue de l\'application',
+                        style: GoogleFonts.getFont(
+                          'Roboto',
+                          color: const Color(0xFF3B2E1A),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildLanguageOption('Français'),
+                      const SizedBox(height: 10),
+                      _buildLanguageOption('English'),
+                      const SizedBox(height: 10),
+                      _buildLanguageOption('العربية'),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 26),
+
+                // Modify information section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Modifier vos informations',
+                        style: GoogleFonts.getFont(
+                          'Roboto',
+                          color: const Color(0xFF3B2E1A),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInfoField(nameController, 'Nom'),
+                      const SizedBox(height: 12),
+                      _buildInfoField(emailController, 'Email'),
+                      const SizedBox(height: 12),
+                      _buildInfoField(phoneController, 'Téléphone'),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Modify button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 104),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD19C64),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(59),
+                      ),
+                      minimumSize: const Size(194, 43),
+                    ),
+                    onPressed: _saveUserData,
+                    child: Text(
+                      'Modifier',
+                      style: GoogleFonts.getFont(
+                        'Inter',
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Logout button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 104),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(59),
+                      ),
+                      side: const BorderSide(
+                        color: Color(0xFFD19C64),
+                        width: 2,
+                      ),
+                      minimumSize: const Size(194, 43),
+                    ),
+                    onPressed: _logout,
+                    icon: const Icon(
+                      Icons.logout,
+                      color: Color(0xFFD19C64),
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Déconnexion',
+                      style: GoogleFonts.getFont(
+                        'Inter',
+                        color: const Color(0xFFD19C64),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 120),
+              ],
+            ),
+          ),
+
+          // Bottom navigation bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: BottomNavBar(
+              selectedIndex: 2,
+              onItemTapped: (int index) {},
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(String language) {
+    bool isSelected = selectedLanguage == language;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedLanguage = language;
+        });
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 17,
+            height: 17,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              border: Border.all(
+                width: 1.1,
+                color: const Color(0xFF877C6B),
+              ),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Center(
+              child: isSelected
+                  ? Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B2E1A),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Text(
+            language,
+            style: GoogleFonts.getFont(
+              'Roboto',
+              color: const Color(0xFF3B2E1A),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoField(TextEditingController controller, String hint) {
+    return Container(
+      width: double.infinity,
+      height: 42,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8EC),
+        border: Border.all(
+          width: 1.7,
+          color: const Color(0xFFCCC5C5),
+        ),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Center(
+        child: TextField(
+          controller: controller,
+          style: GoogleFonts.getFont(
+            'Poppins',
+            color: const Color(0xFF393939),
+            fontSize: 13,
+          ),
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+            isDense: true,
+            hintText: hint,
+            hintStyle: GoogleFonts.getFont(
+              'Poppins',
+              color: Colors.grey.shade400,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

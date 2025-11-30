@@ -1,0 +1,109 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class BottomNavBar extends StatelessWidget {
+  final int selectedIndex;
+
+  const BottomNavBar({
+    Key? key,
+    required this.selectedIndex, required void Function(int index) onItemTapped,
+  }) : super(key: key);
+
+  static const List<Map<String, String>> navItems = [
+    {
+      'label': 'Acceuil',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2F1ef29dcb-7dca-40a8-9558-e40efd9aae19.png',
+      'route': '/home'
+    },
+    {
+      'label': 'Commandes',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2F88b0657e-e276-4d5e-9c30-aa453c918908.png',
+      'route': '/commandes'
+    },
+    {
+      'label': 'Profile',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Fe15ac8f3-0c37-4cd3-968f-c87b20b72ee3.png',
+      'route': '/profile'
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 89,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        border: Border.all(
+          width: 3,
+          color: const Color(0xFFD3D3D3),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(
+          navItems.length,
+              (index) => _buildNavItem(
+            context,
+            navItems[index]['label']!,
+            navItems[index]['icon']!,
+            navItems[index]['route']!,
+            index,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+      BuildContext context,
+      String label,
+      String iconUrl,
+      String route,
+      int index,
+      ) {
+    bool isSelected = selectedIndex == index;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            // Navigate to the route
+            Navigator.pushNamed(context, route);
+          },
+          splashColor: const Color(0xFF967217).withOpacity(0.2),
+          highlightColor: const Color(0xFF967217).withOpacity(0.1),
+          child: Container(
+            height: double.infinity,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.network(
+                  iconUrl,
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.contain,
+                  color: isSelected
+                      ? const Color(0xFF967217)
+                      : const Color(0xFF636363),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  label,
+                  style: GoogleFonts.getFont(
+                    'Inter',
+                    color: isSelected
+                        ? const Color(0xFF967217)
+                        : const Color(0xFF636363),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
