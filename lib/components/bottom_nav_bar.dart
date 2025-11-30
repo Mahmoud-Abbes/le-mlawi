@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../config/translation_config.dart';
 
-class BottomNavBar extends StatelessWidget {
+class BottomNavBar extends StatefulWidget {
   final int selectedIndex;
+  final void Function(int index) onItemTapped;
 
   const BottomNavBar({
     Key? key,
-    required this.selectedIndex, required void Function(int index) onItemTapped,
+    required this.selectedIndex,
+    required this.onItemTapped,
   }) : super(key: key);
 
+  @override
+  State<BottomNavBar> createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<BottomNavBar> {
   static const List<Map<String, String>> navItems = [
     {
       'label': 'Acceuil',
@@ -26,6 +34,31 @@ class BottomNavBar extends StatelessWidget {
       'route': '/profile'
     },
   ];
+
+  // Store translated labels
+  Map<String, String> translatedLabels = {};
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTranslations();
+  }
+
+  Future<void> _loadTranslations() async {
+    // Translate all labels
+    for (var item in navItems) {
+      final label = item['label']!;
+      final translated = await translate(label);
+      translatedLabels[label] = translated;
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,14 +94,13 @@ class BottomNavBar extends StatelessWidget {
       String route,
       int index,
       ) {
-    bool isSelected = selectedIndex == index;
+    bool isSelected = widget.selectedIndex == index;
 
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Navigate to the route
             Navigator.pushNamed(context, route);
           },
           splashColor: const Color(0xFF967217).withOpacity(0.2),
@@ -88,8 +120,9 @@ class BottomNavBar extends StatelessWidget {
                       : const Color(0xFF636363),
                 ),
                 const SizedBox(height: 5),
+                // Display translated label
                 Text(
-                  label,
+                  translatedLabels[label] ?? label,
                   style: GoogleFonts.getFont(
                     'Inter',
                     color: isSelected

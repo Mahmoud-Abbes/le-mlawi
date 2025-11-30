@@ -1,9 +1,13 @@
 import 'package:bestmlawi/pages/produit_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../components/bottom_nav_bar.dart';
 import '../components/product_card.dart';
 import '../config/global_params.dart';
+import '../config/translation_config.dart';
 
 class PageAcceuil extends StatefulWidget {
   @override
@@ -16,10 +20,70 @@ class _PageAcceuilState extends State<PageAcceuil> {
   TextEditingController searchController = TextEditingController();
   String searchQuery = "";
 
+  // User data from SharedPreferences and Firebase
+  String userName = '';
+  String? userProfileImage;
+  bool isLoadingUserData = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
   @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // Try to get data from Firestore first
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data()!;
+          setState(() {
+            userName = data['nom'] ?? 'Utilisateur';
+            userProfileImage = data['profileImageUrl'];
+            isLoadingUserData = false;
+          });
+
+          // Update SharedPreferences
+          await prefs.setString('nom', userName);
+          if (userProfileImage != null) {
+            await prefs.setString('profileImageUrl', userProfileImage!);
+          }
+        } else {
+          // Fallback to SharedPreferences
+          setState(() {
+            userName = prefs.getString('nom') ?? 'Utilisateur';
+            userProfileImage = prefs.getString('profileImageUrl');
+            isLoadingUserData = false;
+          });
+        }
+      } else {
+        // User not logged in, use SharedPreferences
+        setState(() {
+          userName = prefs.getString('nom') ?? 'Utilisateur';
+          userProfileImage = prefs.getString('profileImageUrl');
+          isLoadingUserData = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      setState(() {
+        isLoadingUserData = false;
+      });
+    }
   }
 
   void _onNavItemTapped(int index) {
@@ -27,18 +91,15 @@ class _PageAcceuilState extends State<PageAcceuil> {
       selectedNavIndex = index;
     });
 
-    // Handle navigation based on index
     switch (index) {
       case 0:
         print('Navigate to Home');
         break;
       case 1:
         print('Navigate to Commandes');
-        // Navigator.pushNamed(context, '/commandes');
         break;
       case 2:
         print('Navigate to Profile');
-        // Navigator.pushNamed(context, '/profile');
         break;
     }
   }
@@ -46,14 +107,12 @@ class _PageAcceuilState extends State<PageAcceuil> {
   List<Map<String, dynamic>> getFilteredProducts() {
     List<Map<String, dynamic>> products = GlobalParams.products;
 
-    // Filter by categories if any selected
     if (selectedCategories.isNotEmpty) {
       products = products
           .where((product) => selectedCategories.contains(product['category']))
           .toList();
     }
 
-    // Filter by search query
     if (searchQuery.isNotEmpty) {
       products = products.where((product) {
         String productName = product['name'].toString().toLowerCase();
@@ -88,34 +147,85 @@ class _PageAcceuilState extends State<PageAcceuil> {
               padding: const EdgeInsets.fromLTRB(25, 20, 20, 0),
               child: Row(
                 children: [
-                  // Profile image
+                  // Profile image - Dynamic from Firebase/SharedPreferences
                   ClipRRect(
                     borderRadius: BorderRadius.circular(28),
-                    child: Image.network(
-                      GlobalParams.userProfileImage,
+                    child: isLoadingUserData
+                        ? Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD48C41).withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFFD48C41),
+                          ),
+                        ),
+                      ),
+                    )
+                        : userProfileImage != null && userProfileImage!.isNotEmpty
+                        ? Image.network(
+                      userProfileImage!,
                       width: 56,
                       height: 56,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD48C41),
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        );
+                      },
+                    )
+                        : Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD48C41),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
 
-                  // Welcome text
+                  // Welcome text - Translated directly
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Bienvenu à niveau',
-                          style: GoogleFonts.getFont(
-                            'Poppins',
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        FutureBuilder<String>(
+                          future: translate('Bienvenu à niveau'),
+                          builder: (context, snapshot) {
+                            return Text(
+                              snapshot.data ?? 'Bienvenu à niveau',
+                              style: GoogleFonts.getFont(
+                                'Poppins',
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            );
+                          },
                         ),
                         Text(
-                          'Mahmoud abbes',
+                          userName, // Dynamic user name from Firebase
                           style: GoogleFonts.getFont(
                             'Poppins',
                             color: const Color(0xFFACACAC),
@@ -158,7 +268,7 @@ class _PageAcceuilState extends State<PageAcceuil> {
 
             const SizedBox(height: 20),
 
-            // Search bar
+            // Search bar - Translated placeholder directly
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Container(
@@ -175,22 +285,27 @@ class _PageAcceuilState extends State<PageAcceuil> {
                   children: [
                     const SizedBox(width: 20),
                     Expanded(
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: (value) {
-                          setState(() {
-                            searchQuery = value;
-                          });
+                      child: FutureBuilder<String>(
+                        future: translate('Chercher un produit...'),
+                        builder: (context, snapshot) {
+                          return TextField(
+                            controller: searchController,
+                            onChanged: (value) {
+                              setState(() {
+                                searchQuery = value;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: snapshot.data ?? 'Chercher un produit...',
+                              hintStyle: GoogleFonts.getFont(
+                                'Inter',
+                                color: const Color(0xFFA2A2A2),
+                                fontSize: 13,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                          );
                         },
-                        decoration: InputDecoration(
-                          hintText: 'Chercher un produit...',
-                          hintStyle: GoogleFonts.getFont(
-                            'Inter',
-                            color: const Color(0xFFA2A2A2),
-                            fontSize: 13,
-                          ),
-                          border: InputBorder.none,
-                        ),
                       ),
                     ),
                     Padding(
@@ -209,20 +324,25 @@ class _PageAcceuilState extends State<PageAcceuil> {
 
             const SizedBox(height: 20),
 
-            // Category filter section
+            // Category filter section - Translated directly
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Filtrer par catégorie',
-                    style: GoogleFonts.getFont(
-                      'Poppins',
-                      color: const Color(0xFF3B2E1A),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  FutureBuilder<String>(
+                    future: translate('Filtrer par catégorie'),
+                    builder: (context, snapshot) {
+                      return Text(
+                        snapshot.data ?? 'Filtrer par catégorie',
+                        style: GoogleFonts.getFont(
+                          'Poppins',
+                          color: const Color(0xFF3B2E1A),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 15),
 
@@ -256,14 +376,19 @@ class _PageAcceuilState extends State<PageAcceuil> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Produits populaires',
-                        style: GoogleFonts.getFont(
-                          'Poppins',
-                          color: const Color(0xFF3B2E1A),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      FutureBuilder<String>(
+                        future: translate('Produits populaires'),
+                        builder: (context, snapshot) {
+                          return Text(
+                            snapshot.data ?? 'Produits populaires',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              color: const Color(0xFF3B2E1A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 15),
 
@@ -273,7 +398,7 @@ class _PageAcceuilState extends State<PageAcceuil> {
                           final filteredProducts = getFilteredProducts();
 
                           if (filteredProducts.isEmpty) {
-                            // Empty state when no products found
+                            // Empty state - Translated directly
                             return Center(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 80),
@@ -294,25 +419,35 @@ class _PageAcceuilState extends State<PageAcceuil> {
                                       ),
                                     ),
                                     const SizedBox(height: 24),
-                                    Text(
-                                      'Aucun produit trouvé',
-                                      style: GoogleFonts.getFont(
-                                        'Poppins',
-                                        color: const Color(0xFF3B2E1A),
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    FutureBuilder<String>(
+                                      future: translate('Aucun produit trouvé'),
+                                      builder: (context, snapshot) {
+                                        return Text(
+                                          snapshot.data ?? 'Aucun produit trouvé',
+                                          style: GoogleFonts.getFont(
+                                            'Poppins',
+                                            color: const Color(0xFF3B2E1A),
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        );
+                                      },
                                     ),
                                     const SizedBox(height: 12),
-                                    Text(
-                                      'Essayez de modifier votre recherche\nou vos filtres',
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.getFont(
-                                        'Poppins',
-                                        color: const Color(0xFFACACAC),
-                                        fontSize: 14,
-                                        height: 1.5,
-                                      ),
+                                    FutureBuilder<String>(
+                                      future: translate('Essayez de modifier votre recherche\nou vos filtres'),
+                                      builder: (context, snapshot) {
+                                        return Text(
+                                          snapshot.data ?? 'Essayez de modifier votre recherche\nou vos filtres',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.getFont(
+                                            'Poppins',
+                                            color: const Color(0xFFACACAC),
+                                            fontSize: 14,
+                                            height: 1.5,
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),

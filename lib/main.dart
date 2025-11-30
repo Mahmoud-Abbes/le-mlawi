@@ -1,12 +1,14 @@
+import 'package:bestmlawi/pages/admin_profile_page.dart';
 import 'package:bestmlawi/pages/bienvenu.page1.dart';
 import 'package:bestmlawi/pages/connexion.page.dart';
+import 'package:bestmlawi/pages/gestion_commandes_page.dart';
 import 'package:bestmlawi/pages/page_acceuil.dart';
 import 'package:bestmlawi/pages/commandes_page.dart';
 import 'package:bestmlawi/pages/profile_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'config/translation_config.dart';
 import 'firebase_options.dart';
-import 'services/translation_service.dart';
 
 void main() async {
   print('=== APP STARTING ===');
@@ -17,7 +19,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    await TranslationService().init();
+    await TranslationConfig.init();
+
     print('=== FIREBASE AND TRANSLATION INITIALIZED SUCCESSFULLY ===');
   } catch (e) {
     print('=== FIREBASE ERROR: $e ===');
@@ -39,12 +42,14 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: BienvenuePage1(),
+      home: GestionCommandesPage(),
       routes: {
         '/home': (context) => PageAcceuil(),
         '/commandes': (context) => CommandesPage(),
         '/profile': (context) => ProfilePage(),
         '/login': (context) => ConnexionPage(),
+        '/admin_profile': (context) => const AdminProfilePage(),
+        '/gestion_commandes': (context) => const GestionCommandesPage(),
       },
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
