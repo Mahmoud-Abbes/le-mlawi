@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../components/bottom_nav_bar.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -25,6 +26,9 @@ class _ProfilePageState extends State<ProfilePage> {
   String? profileImageUrl;
   final ImagePicker _picker = ImagePicker();
   bool isUploading = false;
+
+  // ImgBB API Key
+  static const String IMGBB_API_KEY = '73a767be01531640fe4a5a7c25bb547e';
 
   @override
   void initState() {
@@ -86,6 +90,41 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<String?> _uploadImageToImgBB(File imageFile) async {
+    try {
+      // Convert image to base64
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      // Create multipart request
+      final uri = Uri.parse('https://api.imgbb.com/1/upload');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add API key and image
+      request.fields['key'] = IMGBB_API_KEY;
+      request.fields['image'] = base64Image;
+
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        if (jsonResponse['success'] == true) {
+          // Return the image URL
+          return jsonResponse['data']['url'];
+        } else {
+          throw Exception('Upload failed: ${jsonResponse['error']['message']}');
+        }
+      } else {
+        throw Exception('Upload failed with status: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error uploading to ImgBB: $e');
+      rethrow;
+    }
+  }
+
   Future<void> _pickAndUploadImage() async {
     try {
       // Pick image from gallery
@@ -108,34 +147,29 @@ class _ProfilePageState extends State<ProfilePage> {
         throw Exception('Utilisateur non connecté');
       }
 
-      // Create a reference to Firebase Storage
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_images')
-          .child('${user.uid}.jpg');
-
-      // Upload the file
+      // Upload to ImgBB
       final File imageFile = File(image.path);
-      final uploadTask = await storageRef.putFile(imageFile);
+      final String? imageUrl = await _uploadImageToImgBB(imageFile);
 
-      // Get the download URL
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      if (imageUrl == null) {
+        throw Exception('Failed to get image URL');
+      }
 
-      // Update Firestore
+      // Update Firestore with the image URL
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .set({
-        'profileImageUrl': downloadUrl,
+        'profileImageUrl': imageUrl,
       }, SetOptions(merge: true));
 
       // Save to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('profileImageUrl', downloadUrl);
+      await prefs.setString('profileImageUrl', imageUrl);
 
       // Update the UI
       setState(() {
-        profileImageUrl = downloadUrl;
+        profileImageUrl = imageUrl;
         isUploading = false;
       });
 
@@ -302,18 +336,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       top: 36,
                       child: GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: Image.network(
-                          'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F33a3bbb97c5a949d4419852f6eb37cf8e75609ebimage%2021.png?alt=media&token=18d9c711-c8e5-4a4c-bed0-2a2328d3bf1f',
-                          width: 18,
-                          height: 18,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(
-                              Icons.arrow_back,
-                              color: Color(0xFF3B2E1A),
-                              size: 18,
-                            );
-                          },
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Color(0xFF3B2E1A),
+                          size: 24,
                         ),
                       ),
                     ),
@@ -502,7 +528,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
                 // Modify button
                 Padding(
@@ -529,7 +555,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
                 // Logout button
                 Padding(

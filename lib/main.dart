@@ -6,6 +6,7 @@ import 'package:bestmlawi/pages/profile_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
+import 'services/translation_service.dart';
 
 void main() async {
   print('=== APP STARTING ===');
@@ -16,7 +17,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('=== FIREBASE INITIALIZED SUCCESSFULLY ===');
+    await TranslationService().init();
+    print('=== FIREBASE AND TRANSLATION INITIALIZED SUCCESSFULLY ===');
   } catch (e) {
     print('=== FIREBASE ERROR: $e ===');
   }
