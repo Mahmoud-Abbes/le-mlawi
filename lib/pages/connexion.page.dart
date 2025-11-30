@@ -36,14 +36,19 @@ class _ConnexionPageState extends State<ConnexionPage> {
       if (userDoc.exists) {
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
 
-        // Save to SharedPreferences
+        // Save to SharedPreferences including language
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('nom', userData['nom'] ?? '');
         await prefs.setString('telephone', userData['telephone'] ?? '');
         await prefs.setString('email', userData['email'] ?? '');
         await prefs.setString('uid', uid);
+
+        // Retrieve language from Firestore, default to Français if not found
+        String selectedLanguage = userData['selectedLanguage'] ?? 'Français';
+        await prefs.setString('selectedLanguage', selectedLanguage);
+
       } else {
-        // If no Firestore data, use Firebase Auth data
+        // If no Firestore data, use Firebase Auth data and set default language
         User? user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -51,6 +56,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
           await prefs.setString('telephone', user.phoneNumber ?? '');
           await prefs.setString('email', user.email ?? '');
           await prefs.setString('uid', uid);
+          await prefs.setString('selectedLanguage', 'Français'); // Default
         }
       }
     } catch (e) {
@@ -87,7 +93,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
           password: password.trim(),
         );
 
-        // Load user data
+        // Load user data including language preference
         await _loadUserData(userCredential.user!.uid);
 
         Navigator.pop(context); // Remove loading
@@ -145,7 +151,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
       Navigator.pop(context); // Remove loading
 
       if (userCredential != null) {
-        // Load user data
+        // Load user data including language preference
         await _loadUserData(userCredential.user!.uid);
 
         Navigator.pushNamed(context, '/home');
@@ -202,7 +208,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
         UserCredential userCredential =
         await FirebaseAuth.instance.signInWithCredential(facebookAuthCredential);
 
-        // Load user data
+        // Load user data including language preference
         await _loadUserData(userCredential.user!.uid);
 
         Navigator.pop(context); // Remove loading

@@ -27,7 +27,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
   bool isUploading = false;
 
-  // ImgBB API Key
   static const String IMGBB_API_KEY = '73a767be01531640fe4a5a7c25bb547e';
 
   @override
@@ -42,7 +41,6 @@ class _ProfilePageState extends State<ProfilePage> {
       final user = FirebaseAuth.instance.currentUser;
 
       if (user != null) {
-        // Try to load from Firestore first
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -58,14 +56,12 @@ class _ProfilePageState extends State<ProfilePage> {
             selectedLanguage = data['selectedLanguage'] ?? 'Français';
           });
 
-          // Save to SharedPreferences for offline access
           await prefs.setString('nom', nameController.text);
           await prefs.setString('email', emailController.text);
           await prefs.setString('telephone', phoneController.text);
           await prefs.setString('profileImageUrl', profileImageUrl ?? '');
           await prefs.setString('selectedLanguage', selectedLanguage);
         } else {
-          // Load from SharedPreferences if Firestore doc doesn't exist
           setState(() {
             nameController.text = prefs.getString('nom') ?? '';
             emailController.text = prefs.getString('email') ?? user.email ?? '';
@@ -92,26 +88,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<String?> _uploadImageToImgBB(File imageFile) async {
     try {
-      // Convert image to base64
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
-
-      // Create multipart request
       final uri = Uri.parse('https://api.imgbb.com/1/upload');
       final request = http.MultipartRequest('POST', uri);
-
-      // Add API key and image
       request.fields['key'] = IMGBB_API_KEY;
       request.fields['image'] = base64Image;
-
-      // Send request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         if (jsonResponse['success'] == true) {
-          // Return the image URL
           return jsonResponse['data']['url'];
         } else {
           throw Exception('Upload failed: ${jsonResponse['error']['message']}');
@@ -127,7 +115,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      // Pick image from gallery
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1024,
@@ -141,13 +128,11 @@ class _ProfilePageState extends State<ProfilePage> {
         isUploading = true;
       });
 
-      // Get current user
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('Utilisateur non connecté');
       }
 
-      // Upload to ImgBB
       final File imageFile = File(image.path);
       final String? imageUrl = await _uploadImageToImgBB(imageFile);
 
@@ -155,7 +140,6 @@ class _ProfilePageState extends State<ProfilePage> {
         throw Exception('Failed to get image URL');
       }
 
-      // Update Firestore with the image URL
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -163,11 +147,9 @@ class _ProfilePageState extends State<ProfilePage> {
         'profileImageUrl': imageUrl,
       }, SetOptions(merge: true));
 
-      // Save to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profileImageUrl', imageUrl);
 
-      // Update the UI
       setState(() {
         profileImageUrl = imageUrl;
         isUploading = false;
@@ -209,7 +191,7 @@ class _ProfilePageState extends State<ProfilePage> {
         isLoading = true;
       });
 
-      // Update Firestore
+      // Update Firestore with language
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -221,7 +203,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // Update SharedPreferences
+      // Update SharedPreferences with language
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('nom', nameController.text.trim());
       await prefs.setString('email', emailController.text.trim());
@@ -257,17 +239,46 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _changeLanguage(String language) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      setState(() {
+        selectedLanguage = language;
+      });
+
+      // Update in Firebase
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+        'selectedLanguage': language,
+      }, SetOptions(merge: true));
+
+      // Update in SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selectedLanguage', language);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Langue changée en $language'),
+            backgroundColor: const Color(0xFFA2B84E),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error changing language: $e');
+    }
+  }
+
   Future<void> _logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      // Clear user data from SharedPreferences
       await prefs.clear();
-
-      // Sign out from Firebase
       await FirebaseAuth.instance.signOut();
 
-      // Navigate to login page
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
       }
@@ -309,15 +320,12 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: const Color(0xFFFFF8EC),
       body: Stack(
         children: [
-          // Main content
           SingleChildScrollView(
             child: Column(
               children: [
-                // Header with curved background
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Curved background
                     Container(
                       width: double.infinity,
                       height: 326,
@@ -329,8 +337,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-
-                    // Back button
                     Positioned(
                       left: 25,
                       top: 36,
@@ -343,8 +349,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-
-                    // Profile title
                     Positioned(
                       left: 0,
                       right: 0,
@@ -361,8 +365,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-
-                    // Profile picture
                     Positioned(
                       left: 0,
                       right: 0,
@@ -437,8 +439,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-
-                    // Name and email
                     Positioned(
                       left: 0,
                       right: 0,
@@ -473,10 +473,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 30),
-
-                // Language selection section
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 36),
                   child: Column(
@@ -500,10 +497,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 26),
-
-                // Modify information section
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 36),
                   child: Column(
@@ -527,10 +521,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                // Modify button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 104),
                   child: ElevatedButton(
@@ -554,10 +545,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                // Logout button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 104),
                   child: OutlinedButton.icon(
@@ -589,13 +577,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 120),
               ],
             ),
           ),
-
-          // Bottom navigation bar
           Positioned(
             left: 0,
             right: 0,
@@ -614,11 +599,7 @@ class _ProfilePageState extends State<ProfilePage> {
     bool isSelected = selectedLanguage == language;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedLanguage = language;
-        });
-      },
+      onTap: () => _changeLanguage(language),
       child: Row(
         children: [
           Container(

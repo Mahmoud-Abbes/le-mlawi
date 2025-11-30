@@ -35,18 +35,20 @@ class _InscriptionPageState extends State<InscriptionPage> {
 
   Future<void> _saveUserData(String nom, String telephone, String email, String uid) async {
     try {
-      // Save to SharedPreferences
+      // Save to SharedPreferences with default language
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('nom', nom);
       await prefs.setString('telephone', telephone);
       await prefs.setString('email', email);
       await prefs.setString('uid', uid);
+      await prefs.setString('selectedLanguage', 'Français'); // Set default language
 
-      // Save to Firestore
+      // Save to Firestore with default language
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'nom': nom,
         'telephone': telephone,
         'email': email,
+        'selectedLanguage': 'Français', // Set default language
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -93,7 +95,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
         // Update display name
         await userCredential.user?.updateDisplayName(nom);
 
-        // Save user data
+        // Save user data with default language (Français)
         await _saveUserData(nom, telephone, email, userCredential.user!.uid);
 
         Navigator.pop(context); // Remove loading
@@ -157,7 +159,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
         String email = userCredential.user?.email ?? '';
         String telephone = userCredential.user?.phoneNumber ?? '';
 
-        // Save user data
+        // Save user data with default language
         await _saveUserData(nom, telephone, email, userCredential.user!.uid);
 
         Navigator.pop(context); // Pop inscription page
@@ -221,7 +223,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
         String email = userData['email'] ?? userCredential.user?.email ?? '';
         String telephone = userCredential.user?.phoneNumber ?? '';
 
-        // Save user data
+        // Save user data with default language
         await _saveUserData(nom, telephone, email, userCredential.user!.uid);
 
         Navigator.pop(context); // Remove loading
