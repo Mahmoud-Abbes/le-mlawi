@@ -4,6 +4,7 @@ import 'package:bestmlawi/pages/connexion.page.dart';
 import 'package:bestmlawi/pages/gestion_commandes_page.dart';
 import 'package:bestmlawi/pages/page_acceuil.dart';
 import 'package:bestmlawi/pages/commandes_page.dart';
+import 'package:bestmlawi/pages/panier_page.dart';
 import 'package:bestmlawi/pages/profile_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +43,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: GestionCommandesPage(),
+      home: ConnexionPage(),
       routes: {
         '/home': (context) => PageAcceuil(),
         '/commandes': (context) => CommandesPage(),
@@ -50,6 +51,8 @@ class MyApp extends StatelessWidget {
         '/login': (context) => ConnexionPage(),
         '/admin_profile': (context) => const AdminProfilePage(),
         '/gestion_commandes': (context) => const GestionCommandesPage(),
+        '/panier': (context) => const PanierPage(),
+
       },
       onUnknownRoute: (settings) {
         return MaterialPageRoute(

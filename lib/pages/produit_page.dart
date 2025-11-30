@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../config/global_params.dart';
 
 class ProduitPage extends StatefulWidget {
@@ -14,6 +16,100 @@ class ProduitPage extends StatefulWidget {
 class _ProduitPageState extends State<ProduitPage> {
   Set<int> selectedSupplements = {};
   int? selectedDrink;
+
+  Future<void> _addToCart() async {
+    final product = GlobalParams.getProductById(widget.productId);
+    if (product == null) return;
+
+    // Calculate total price
+    double totalPrice = product['price'];
+
+    // Prepare supplements list with prices
+    List<Map<String, dynamic>> supplementsList = [];
+    if (product['supplements'] != null) {
+      for (int index in selectedSupplements) {
+        var supplement = product['supplements'][index];
+        supplementsList.add({
+          'name': supplement['name'],
+          'price': supplement['price'],
+        });
+        totalPrice += supplement['price'];
+      }
+    }
+
+    // Add drink if selected
+    Map<String, dynamic>? selectedBeverageData;
+    if (selectedDrink != null) {
+      selectedBeverageData = {
+        'name': GlobalParams.beverages[selectedDrink!]['name'],
+        'price': product['drinks'][0]['price'],
+      };
+      totalPrice += product['drinks'][0]['price'];
+    }
+
+    // Create cart item object
+    Map<String, dynamic> cartItem = {
+      'productId': widget.productId,
+      'productName': product['name'],
+      'productPrice': product['price'],
+      'supplements': supplementsList,
+      'beverage': selectedBeverageData,
+      'quantity': 1,
+      'totalPrice': totalPrice,
+    };
+
+    // Get SharedPreferences instance
+    final prefs = await SharedPreferences.getInstance();
+
+    // Get existing cart or create new one
+    String? cartString = prefs.getString('cart');
+    List<dynamic> cart = [];
+
+    if (cartString != null) {
+      cart = json.decode(cartString);
+    }
+
+    // Add new item to cart
+    cart.add(cartItem);
+
+    // Save updated cart
+    await prefs.setString('cart', json.encode(cart));
+
+    // Calculate and save cart total
+    double cartTotal = 0;
+    for (var item in cart) {
+      cartTotal += item['totalPrice'] * item['quantity'];
+    }
+    await prefs.setDouble('cartTotal', cartTotal);
+
+    // Show success message
+    if (mounted) {
+      String supplementsInfo = '';
+      if (supplementsList.isNotEmpty) {
+        List supplementNames = supplementsList.map((s) => s['name']).toList();
+        supplementsInfo = '\nSuppléments: ${supplementNames.join(", ")}';
+      }
+
+      String drinkInfo = '';
+      if (selectedBeverageData != null) {
+        drinkInfo = '\nBoisson: ${selectedBeverageData['name']}';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ajouté au panier$supplementsInfo$drinkInfo\nTotal: ${totalPrice.toStringAsFixed(3)} DT',
+          ),
+          backgroundColor: const Color(0xFFA2B84E),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Navigate to cart page after a short delay
+      await Future.delayed(const Duration(milliseconds: 500));
+      Navigator.pushNamed(context, '/panier');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -328,31 +424,7 @@ class _ProduitPageState extends State<ProduitPage> {
                     borderRadius: BorderRadius.circular(59),
                   ),
                 ),
-                onPressed: () {
-                  // Add to cart logic with detailed information
-                  String supplementsInfo = '';
-                  if (selectedSupplements.isNotEmpty && product['supplements'] != null) {
-                    List supplementNames = selectedSupplements
-                        .map((index) => product['supplements'][index]['name'])
-                        .toList();
-                    supplementsInfo = '\nSuppléments: ${supplementNames.join(", ")}';
-                  }
-
-                  String drinkInfo = '';
-                  if (selectedDrink != null) {
-                    drinkInfo = '\nBoisson: ${GlobalParams.beverages[selectedDrink!]['name']}';
-                  }
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Ajouté au panier$supplementsInfo$drinkInfo\nTotal: ${totalPrice.toStringAsFixed(3)} DT',
-                      ),
-                      backgroundColor: const Color(0xFFA2B84E),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                },
+                onPressed: _addToCart,
                 child: Text(
                   'Ajouter au Panier',
                   style: GoogleFonts.getFont(
@@ -454,17 +526,17 @@ class _ProduitPageState extends State<ProduitPage> {
                 ),
                 // Image starting from center of container and overflowing upward
                 Positioned(
-                  bottom: 35, // Start from center (20 bottom margin + 45 half of container)
+                  bottom: 35,
                   child: Image.network(
                     imageUrl,
                     width: 110,
-                    height: 130, // Bigger and taller image that overflows above container
+                    height: 130,
                     fit: BoxFit.contain,
                   ),
                 ),
                 // Plus/Check button at bottom center - half inside, half outside
                 Positioned(
-                  bottom: 5, // Half of 30px button outside
+                  bottom: 5,
                   child: GestureDetector(
                     onTap: () {
                       setState(() {

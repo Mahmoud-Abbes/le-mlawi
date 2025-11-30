@@ -76,8 +76,162 @@ class GlobalParams {
       "drinks": [
         {"name": "Boisson à 2,500 DT", "price": 2.500}
       ]
+    },
+
+    // ------------------------------------------------------
+    //                     BURGERS (4)
+    // ------------------------------------------------------
+    {
+      "id": 101,
+      "name": "Burger Classic",
+      "price": 12.000,
+      "description": "Viande hachée – Fromage – Tomate – Sauce spéciale",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/BurgerClassic.png",
+      "rating": 4.5,
+      "deliveryTime": "20 min",
+      "deliveryFee": "Gratuit",
+      "category": "Burger",
+      "supplements": [
+        {"name": "Fromage cheddar", "price": 3.000},
+        {"name": "Bacon", "price": 4.000}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 102,
+      "name": "Chicken Burger",
+      "price": 11.000,
+      "description": "Poulet pané – Laitue – Mayonnaise",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/ChickenBurger.png",
+      "rating": 4.1,
+      "deliveryTime": "18 min",
+      "deliveryFee": "Gratuit",
+      "category": "Burger",
+      "supplements": [
+        {"name": "Fromage cheddar", "price": 3.000},
+        {"name": "Oeuf", "price": 1.500}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 103,
+      "name": "Double Cheese Burger",
+      "price": 14.000,
+      "description": "Double viande – Double cheddar – Sauce BBQ",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/DoubleCheeseBurger.png",
+      "rating": 4.7,
+      "deliveryTime": "22 min",
+      "deliveryFee": "Gratuit",
+      "category": "Burger",
+      "supplements": [
+        {"name": "Extra viande", "price": 5.000},
+        {"name": "Fromage cheddar", "price": 3.000}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 104,
+      "name": "Spicy Beef Burger",
+      "price": 13.500,
+      "description": "Viande épicée – Jalapenos – Fromage – Sauce piquante",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/Spicy%20Beef%20Burger.png",
+      "rating": 4.2,
+      "deliveryTime": "19 min",
+      "deliveryFee": "Gratuit",
+      "category": "Burger",
+      "supplements": [
+        {"name": "Sauce piquante", "price": 1.000},
+        {"name": "Fromage cheddar", "price": 3.000}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+
+    // ------------------------------------------------------
+    //                     PIZZAS (4)
+    // ------------------------------------------------------
+    {
+      "id": 201,
+      "name": "Pizza Margherita",
+      "price": 14.000,
+      "description": "Sauce tomate – Mozzarella – Basilic",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/PizzaMargherita.png?updatedAt=1764535651467",
+      "rating": 4.7,
+      "deliveryTime": "30 min",
+      "deliveryFee": "Gratuit",
+      "category": "Pizza",
+      "supplements": [
+        {"name": "Fromage supplémentaire", "price": 3.000},
+        {"name": "Olives", "price": 1.500}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 202,
+      "name": "Pizza Pepperoni",
+      "price": 16.000,
+      "description": "Mozzarella – Pepperoni – Sauce tomate",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/PizzaPepperoni.png",
+      "rating": 4.8,
+      "deliveryTime": "28 min",
+      "deliveryFee": "Gratuit",
+      "category": "Pizza",
+      "supplements": [
+        {"name": "Fromage supplémentaire", "price": 3.000},
+        {"name": "Champignons", "price": 2.000}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 203,
+      "name": "Pizza 4 Fromages",
+      "price": 17.000,
+      "description": "Mozzarella – Parmesan – Emmental – Bleu",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/Pizza4Fromages.png",
+      "rating": 4.6,
+      "deliveryTime": "32 min",
+      "deliveryFee": "Gratuit",
+      "category": "Pizza",
+      "supplements": [
+        {"name": "Olives", "price": 1.500},
+        {"name": "Pâte épaisse", "price": 2.000}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
+    },
+    {
+      "id": 204,
+      "name": "Pizza Thon",
+      "price": 15.000,
+      "description": "Thon – Mozzarella – Oignon – Sauce tomate",
+      "image": "https://ik.imagekit.io/8ble1ymwbp/PizzaThon.png",
+      "rating": 4.3,
+      "deliveryTime": "27 min",
+      "deliveryFee": "Gratuit",
+      "category": "Pizza",
+      "supplements": [
+        {"name": "Fromage supplémentaire", "price": 3.000},
+        {"name": "Oeuf", "price": 1.500}
+      ],
+      "drinks": [
+        {"name": "Boisson à 2,500 DT", "price": 2.500}
+      ]
     }
   ];
+
+
 
   static List<Map<String, dynamic>> beverages = [
     {
@@ -108,8 +262,6 @@ class GlobalParams {
       "image": "https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F552860eff81c6ab5ce6fc19b72204d4e4f63cc77Rectangle%2057.png?alt=media&token=5ea28383-a22a-4143-9b54-6f806fd271f4"
     }
   ];
-
-  static String userProfileImage = "https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2Fdf14111a850c53db7ade44c5db741dcbe25e4b4eEllipse%204.png?alt=media&token=c6711205-2d7f-44f0-a786-61b55c5906ef";
 
   static String searchIcon = "https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2F475c9837-71c4-4e92-9a81-e9aadc3560a1.png";
 

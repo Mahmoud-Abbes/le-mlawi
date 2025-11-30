@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../components/bottom_nav_bar.dart';
 import '../components/product_card.dart';
+import '../components/chatbot_widget.dart';
+import '../components/qr_scanner_page.dart';
 import '../config/global_params.dart';
 import '../config/translation_config.dart';
 
@@ -19,6 +21,12 @@ class _PageAcceuilState extends State<PageAcceuil> {
   int selectedNavIndex = 0;
   TextEditingController searchController = TextEditingController();
   String searchQuery = "";
+
+  // Chatbot state
+  bool showChatbot = false;
+
+  // QR Scanner state
+  bool showQRScanner = false;
 
   // User data from SharedPreferences and Firebase
   String userName = '';
@@ -135,46 +143,75 @@ class _PageAcceuilState extends State<PageAcceuil> {
     });
   }
 
+  void _handleQRCode(String qrCode) {
+    // This will be handled by the QRScannerPage component
+    print('QR Code detected: $qrCode');
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Show QR Scanner if activated
+    if (showQRScanner) {
+      return QRScannerPage(
+        onQRCodeDetected: _handleQRCode,
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8EC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(25, 20, 20, 0),
-              child: Row(
-                children: [
-                  // Profile image - Dynamic from Firebase/SharedPreferences
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: isLoadingUserData
-                        ? Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD48C41).withOpacity(0.3),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(25, 20, 20, 0),
+                  child: Row(
+                    children: [
+                      // Profile image - Dynamic from Firebase/SharedPreferences
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFFD48C41),
+                        child: isLoadingUserData
+                            ? Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD48C41).withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(28),
                           ),
-                        ),
-                      ),
-                    )
-                        : userProfileImage != null && userProfileImage!.isNotEmpty
-                        ? Image.network(
-                      userProfileImage!,
-                      width: 56,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFFD48C41),
+                              ),
+                            ),
+                          ),
+                        )
+                            : userProfileImage != null && userProfileImage!.isNotEmpty
+                            ? Image.network(
+                          userProfileImage!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD48C41),
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            );
+                          },
+                        )
+                            : Container(
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
@@ -186,201 +223,146 @@ class _PageAcceuilState extends State<PageAcceuil> {
                             color: Colors.white,
                             size: 30,
                           ),
-                        );
-                      },
-                    )
-                        : Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD48C41),
-                        borderRadius: BorderRadius.circular(28),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
+                      const SizedBox(width: 10),
 
-                  // Welcome text - Translated directly
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FutureBuilder<String>(
-                          future: translate('Bienvenu à niveau'),
-                          builder: (context, snapshot) {
-                            return Text(
-                              snapshot.data ?? 'Bienvenu à niveau',
+                      // Welcome text - Translated directly
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FutureBuilder<String>(
+                              future: translate('Bienvenue à nouveau'),
+                              builder: (context, snapshot) {
+                                return Text(
+                                  snapshot.data ?? 'Bienvenue à nouveau',
+                                  style: GoogleFonts.getFont(
+                                    'Poppins',
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              },
+                            ),
+                            Text(
+                              userName, // Dynamic user name from Firebase
                               style: GoogleFonts.getFont(
                                 'Poppins',
-                                color: Colors.black,
+                                color: const Color(0xFFACACAC),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
-                        Text(
-                          userName, // Dynamic user name from Firebase
-                          style: GoogleFonts.getFont(
-                            'Poppins',
-                            color: const Color(0xFFACACAC),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                      ),
+
+                      // QR Scanner button (replacing notification button)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            showQRScanner = true;
+                          });
+                        },
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F7FB),
+                            borderRadius: BorderRadius.circular(9),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x3F000000),
+                                spreadRadius: 0,
+                                offset: Offset(0, 4.5),
+                                blurRadius: 14,
+                              )
+                            ],
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.qr_code_scanner,
+                              color: const Color(0xFFD48C41),
+                              size: 25,
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
 
-                  // Notification button
-                  Container(
-                    width: 46,
-                    height: 46,
+                const SizedBox(height: 20),
+
+                // Search bar - Translated placeholder directly
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Container(
+                    height: 53,
                     decoration: BoxDecoration(
                       color: const Color(0xFFF5F7FB),
-                      borderRadius: BorderRadius.circular(9),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x3F000000),
-                          spreadRadius: 0,
-                          offset: Offset(0, 4.5),
-                          blurRadius: 14,
-                        )
+                      border: Border.all(
+                        width: 2,
+                        color: const Color(0xFFF0F0F0),
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: FutureBuilder<String>(
+                            future: translate('Chercher un produit...'),
+                            builder: (context, snapshot) {
+                              return TextField(
+                                controller: searchController,
+                                onChanged: (value) {
+                                  setState(() {
+                                    searchQuery = value;
+                                  });
+                                },
+                                decoration: InputDecoration(
+                                  hintText: snapshot.data ?? 'Chercher un produit...',
+                                  hintStyle: GoogleFonts.getFont(
+                                    'Inter',
+                                    color: const Color(0xFFA2A2A2),
+                                    fontSize: 13,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 15),
+                          child: Image.network(
+                            GlobalParams.searchIcon,
+                            width: 25,
+                            height: 25,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ],
                     ),
-                    child: Center(
-                      child: Image.network(
-                        GlobalParams.notificationIcon,
-                        width: 25,
-                        height: 25,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Search bar - Translated placeholder directly
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Container(
-                height: 53,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FB),
-                  border: Border.all(
-                    width: 2,
-                    color: const Color(0xFFF0F0F0),
-                  ),
-                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: FutureBuilder<String>(
-                        future: translate('Chercher un produit...'),
-                        builder: (context, snapshot) {
-                          return TextField(
-                            controller: searchController,
-                            onChanged: (value) {
-                              setState(() {
-                                searchQuery = value;
-                              });
-                            },
-                            decoration: InputDecoration(
-                              hintText: snapshot.data ?? 'Chercher un produit...',
-                              hintStyle: GoogleFonts.getFont(
-                                'Inter',
-                                color: const Color(0xFFA2A2A2),
-                                fontSize: 13,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 15),
-                      child: Image.network(
-                        GlobalParams.searchIcon,
-                        width: 25,
-                        height: 25,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-            // Category filter section - Translated directly
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FutureBuilder<String>(
-                    future: translate('Filtrer par catégorie'),
-                    builder: (context, snapshot) {
-                      return Text(
-                        snapshot.data ?? 'Filtrer par catégorie',
-                        style: GoogleFonts.getFont(
-                          'Poppins',
-                          color: const Color(0xFF3B2E1A),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Category buttons
-                  SizedBox(
-                    height: 93,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: GlobalParams.categories.map((category) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 7),
-                          child: _buildCategoryButton(
-                            category['name'],
-                            category['image'],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Products section
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
+                // Category filter section - Translated directly
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 30),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       FutureBuilder<String>(
-                        future: translate('Produits populaires'),
+                        future: translate('Filtrer par catégorie'),
                         builder: (context, snapshot) {
                           return Text(
-                            snapshot.data ?? 'Produits populaires',
+                            snapshot.data ?? 'Filtrer par catégorie',
                             style: GoogleFonts.getFont(
                               'Poppins',
                               color: const Color(0xFF3B2E1A),
@@ -392,107 +374,165 @@ class _PageAcceuilState extends State<PageAcceuil> {
                       ),
                       const SizedBox(height: 15),
 
-                      // Product cards or empty state
-                      Builder(
-                        builder: (context) {
-                          final filteredProducts = getFilteredProducts();
-
-                          if (filteredProducts.isEmpty) {
-                            // Empty state - Translated directly
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 80),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 120,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF5F7FB),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.search_off,
-                                        size: 60,
-                                        color: const Color(0xFFACACAC),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    FutureBuilder<String>(
-                                      future: translate('Aucun produit trouvé'),
-                                      builder: (context, snapshot) {
-                                        return Text(
-                                          snapshot.data ?? 'Aucun produit trouvé',
-                                          style: GoogleFonts.getFont(
-                                            'Poppins',
-                                            color: const Color(0xFF3B2E1A),
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    FutureBuilder<String>(
-                                      future: translate('Essayez de modifier votre recherche\nou vos filtres'),
-                                      builder: (context, snapshot) {
-                                        return Text(
-                                          snapshot.data ?? 'Essayez de modifier votre recherche\nou vos filtres',
-                                          textAlign: TextAlign.center,
-                                          style: GoogleFonts.getFont(
-                                            'Poppins',
-                                            color: const Color(0xFFACACAC),
-                                            fontSize: 14,
-                                            height: 1.5,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
+                      // Category buttons
+                      SizedBox(
+                        height: 93,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: GlobalParams.categories.map((category) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 7),
+                              child: _buildCategoryButton(
+                                category['name'],
+                                category['image'],
                               ),
                             );
-                          }
-
-                          // Show product cards
-                          return Column(
-                            children: filteredProducts.map((product) {
-                              return ProductCard(
-                                name: product['name'],
-                                price: product['price'],
-                                description: product['description'],
-                                image: product['image'],
-                                rating: product['rating'],
-                                deliveryTime: product['deliveryTime'],
-                                deliveryFee: product['deliveryFee'],
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ProduitPage(
-                                        productId: product['id'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                onFavoritePressed: () {
-                                  print('Favorite ${product['name']}');
-                                },
-                              );
-                            }).toList(),
-                          );
-                        },
+                          }).toList(),
+                        ),
                       ),
-
-                      const SizedBox(height: 100),
                     ],
                   ),
                 ),
-              ),
+
+                const SizedBox(height: 20),
+
+                // Products section
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FutureBuilder<String>(
+                            future: translate('Produits populaires'),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data ?? 'Produits populaires',
+                                style: GoogleFonts.getFont(
+                                  'Poppins',
+                                  color: const Color(0xFF3B2E1A),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 15),
+
+                          // Product cards or empty state
+                          Builder(
+                            builder: (context) {
+                              final filteredProducts = getFilteredProducts();
+
+                              if (filteredProducts.isEmpty) {
+                                // Empty state - Translated directly
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 80),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 120,
+                                          height: 120,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF5F7FB),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.search_off,
+                                            size: 60,
+                                            color: const Color(0xFFACACAC),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        FutureBuilder<String>(
+                                          future: translate('Aucun produit trouvé'),
+                                          builder: (context, snapshot) {
+                                            return Text(
+                                              snapshot.data ?? 'Aucun produit trouvé',
+                                              style: GoogleFonts.getFont(
+                                                'Poppins',
+                                                color: const Color(0xFF3B2E1A),
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                        FutureBuilder<String>(
+                                          future: translate('Essayez de modifier votre recherche\nou vos filtres'),
+                                          builder: (context, snapshot) {
+                                            return Text(
+                                              snapshot.data ?? 'Essayez de modifier votre recherche\nou vos filtres',
+                                              textAlign: TextAlign.center,
+                                              style: GoogleFonts.getFont(
+                                                'Poppins',
+                                                color: const Color(0xFFACACAC),
+                                                fontSize: 14,
+                                                height: 1.5,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              // Show product cards
+                              return Column(
+                                children: filteredProducts.map((product) {
+                                  return ProductCard(
+                                    name: product['name'],
+                                    price: product['price'],
+                                    description: product['description'],
+                                    image: product['image'],
+                                    rating: product['rating'],
+                                    deliveryTime: product['deliveryTime'],
+                                    deliveryFee: product['deliveryFee'],
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProduitPage(
+                                            productId: product['id'],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    onFavoritePressed: () {
+                                      print('Favorite ${product['name']}');
+                                    },
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 100),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          // Chatbot Widget Overlay
+          ChatbotWidget(
+            isVisible: showChatbot,
+            onClose: () {
+              setState(() {
+                showChatbot = false;
+              });
+            },
+          ),
+        ],
       ),
 
       // Bottom navigation bar
@@ -500,6 +540,23 @@ class _PageAcceuilState extends State<PageAcceuil> {
         selectedIndex: selectedNavIndex,
         onItemTapped: _onNavItemTapped,
       ),
+
+      // Floating Action Button for Chatbot
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            showChatbot = !showChatbot;
+          });
+        },
+        backgroundColor: const Color(0xFFD48C41),
+        elevation: 4,
+        child: Icon(
+          showChatbot ? Icons.close : Icons.chat_bubble_outline,
+          color: Colors.white,
+          size: 28,
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
