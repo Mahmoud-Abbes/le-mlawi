@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../components/bottom_nav_bar.dart';
+import '../config/translation_config.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -17,6 +18,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  // ==================== Variables d'état ====================
   String selectedLanguage = 'Français';
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -29,12 +31,57 @@ class _ProfilePageState extends State<ProfilePage> {
 
   static const String IMGBB_API_KEY = '73a767be01531640fe4a5a7c25bb547e';
 
+  // Variables pour les traductions
+  String translatedProfile = 'Profile';
+  String translatedNom = 'Nom';
+  String translatedEmail = 'Email';
+  String translatedChoisirLangue = 'Choisir langue de l\'application';
+  String translatedModifierInfo = 'Modifier vos informations';
+  String translatedTelephone = 'Téléphone';
+  String translatedModifier = 'Modifier';
+  String translatedDeconnexion = 'Déconnexion';
+  String translatedErreurChargement = 'Erreur de chargement: ';
+  String translatedPhotoMiseAJour = 'Photo de profil mise à jour avec succès';
+  String translatedErreurTelechargement = 'Erreur lors du téléchargement: ';
+  String translatedUtilisateurNonConnecte = 'Utilisateur non connecté';
+  String translatedInfoModifiees = 'Informations modifiées avec succès';
+  String translatedErreurMiseAJour = 'Erreur lors de la mise à jour: ';
+  String translatedLangueChangee = 'Langue changée en ';
+  String translatedErreurDeconnexion = 'Erreur lors de la déconnexion: ';
+
+  // ==================== Initialisation ====================
   @override
   void initState() {
     super.initState();
+    _loadTranslations();
     _loadUserData();
   }
 
+  // ==================== Chargement des traductions ====================
+  Future<void> _loadTranslations() async {
+    translatedProfile = await translate('Profile');
+    translatedNom = await translate('Nom');
+    translatedEmail = await translate('Email');
+    translatedChoisirLangue = await translate('Choisir langue de l\'application');
+    translatedModifierInfo = await translate('Modifier vos informations');
+    translatedTelephone = await translate('Téléphone');
+    translatedModifier = await translate('Modifier');
+    translatedDeconnexion = await translate('Déconnexion');
+    translatedErreurChargement = await translate('Erreur de chargement: ');
+    translatedPhotoMiseAJour = await translate('Photo de profil mise à jour avec succès');
+    translatedErreurTelechargement = await translate('Erreur lors du téléchargement: ');
+    translatedUtilisateurNonConnecte = await translate('Utilisateur non connecté');
+    translatedInfoModifiees = await translate('Informations modifiées avec succès');
+    translatedErreurMiseAJour = await translate('Erreur lors de la mise à jour: ');
+    translatedLangueChangee = await translate('Langue changée en ');
+    translatedErreurDeconnexion = await translate('Erreur lors de la déconnexion: ');
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // ==================== Chargement des données utilisateur ====================
   Future<void> _loadUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -75,7 +122,7 @@ class _ProfilePageState extends State<ProfilePage> {
       print('Error loading user data: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur de chargement: $e'),
+          content: Text('$translatedErreurChargement$e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -86,6 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Upload d'image vers ImgBB ====================
   Future<String?> _uploadImageToImgBB(File imageFile) async {
     try {
       final bytes = await imageFile.readAsBytes();
@@ -113,6 +161,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Sélection et upload de l'image de profil ====================
   Future<void> _pickAndUploadImage() async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -130,7 +179,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('Utilisateur non connecté');
+        throw Exception(translatedUtilisateurNonConnecte);
       }
 
       final File imageFile = File(image.path);
@@ -157,8 +206,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo de profil mise à jour avec succès'),
+          SnackBar(
+            content: Text(translatedPhotoMiseAJour),
             backgroundColor: Color(0xFFA2B84E),
           ),
         );
@@ -171,7 +220,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors du téléchargement: $e'),
+            content: Text('$translatedErreurTelechargement$e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -180,18 +229,19 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Sauvegarde des données utilisateur ====================
   Future<void> _saveUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('Utilisateur non connecté');
+        throw Exception(translatedUtilisateurNonConnecte);
       }
 
       setState(() {
         isLoading = true;
       });
 
-      // Update Firestore with language
+      // Mise à jour dans Firestore avec la langue
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -203,7 +253,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // Update SharedPreferences with language
+      // Mise à jour dans SharedPreferences avec la langue
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('nom', nameController.text.trim());
       await prefs.setString('email', emailController.text.trim());
@@ -216,8 +266,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Informations modifiées avec succès'),
+          SnackBar(
+            content: Text(translatedInfoModifiees),
             backgroundColor: Color(0xFFA2B84E),
           ),
         );
@@ -230,7 +280,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la mise à jour: $e'),
+            content: Text('$translatedErreurMiseAJour$e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -239,6 +289,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Changement de langue ====================
   Future<void> _changeLanguage(String language) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -248,7 +299,7 @@ class _ProfilePageState extends State<ProfilePage> {
         selectedLanguage = language;
       });
 
-      // Update in Firebase
+      // Mise à jour dans Firebase
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -256,14 +307,17 @@ class _ProfilePageState extends State<ProfilePage> {
         'selectedLanguage': language,
       }, SetOptions(merge: true));
 
-      // Update in SharedPreferences
+      // Mise à jour dans SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selectedLanguage', language);
+
+      // Recharger les traductions
+      await _loadTranslations();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Langue changée en $language'),
+            content: Text('$translatedLangueChangee$language'),
             backgroundColor: const Color(0xFFA2B84E),
           ),
         );
@@ -273,6 +327,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Déconnexion ====================
   Future<void> _logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -287,7 +342,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la déconnexion: $e'),
+            content: Text('$translatedErreurDeconnexion$e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -295,6 +350,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ==================== Nettoyage ====================
   @override
   void dispose() {
     nameController.dispose();
@@ -303,8 +359,10 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
+  // ==================== Interface utilisateur ====================
   @override
   Widget build(BuildContext context) {
+    // Écran de chargement
     if (isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFFFF8EC),
@@ -320,12 +378,15 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: const Color(0xFFFFF8EC),
       body: Stack(
         children: [
+          // Contenu principal avec défilement
           SingleChildScrollView(
             child: Column(
               children: [
+                // En-tête avec photo de profil
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Arrière-plan arrondi
                     Container(
                       width: double.infinity,
                       height: 326,
@@ -337,6 +398,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
+                    // Bouton retour
                     Positioned(
                       left: 25,
                       top: 36,
@@ -349,13 +411,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
+                    // Titre de la page
                     Positioned(
                       left: 0,
                       right: 0,
                       top: 31,
                       child: Center(
                         child: Text(
-                          'Profile',
+                          translatedProfile,
                           style: GoogleFonts.getFont(
                             'Roboto',
                             color: const Color(0xFF3B2E1A),
@@ -365,6 +428,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
+                    // Photo de profil avec bouton d'ajout
                     Positioned(
                       left: 0,
                       right: 0,
@@ -373,6 +437,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
+                            // Avatar
                             Container(
                               width: 99,
                               height: 99,
@@ -394,6 +459,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               )
                                   : null,
                             ),
+                            // Indicateur de chargement
                             if (isUploading)
                               Positioned.fill(
                                 child: Container(
@@ -409,6 +475,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                 ),
                               ),
+                            // Bouton d'ajout de photo
                             Positioned(
                               right: 0,
                               bottom: 0,
@@ -439,6 +506,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
+                    // Nom et email de l'utilisateur
                     Positioned(
                       left: 0,
                       right: 0,
@@ -448,7 +516,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           Text(
                             nameController.text.isNotEmpty
                                 ? nameController.text
-                                : 'Nom',
+                                : translatedNom,
                             style: GoogleFonts.getFont(
                               'Roboto',
                               color: const Color(0xFF3B2E1A),
@@ -460,7 +528,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           Text(
                             emailController.text.isNotEmpty
                                 ? emailController.text
-                                : 'Email',
+                                : translatedEmail,
                             style: GoogleFonts.getFont(
                               'Roboto',
                               color: const Color(0xFF83735C),
@@ -474,13 +542,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
                 const SizedBox(height: 30),
+                // Section de sélection de langue
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 36),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Choisir langue de l\'application',
+                        translatedChoisirLangue,
                         style: GoogleFonts.getFont(
                           'Roboto',
                           color: const Color(0xFF3B2E1A),
@@ -498,13 +567,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 26),
+                // Section de modification des informations
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 36),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Modifier vos informations',
+                        translatedModifierInfo,
                         style: GoogleFonts.getFont(
                           'Roboto',
                           color: const Color(0xFF3B2E1A),
@@ -513,15 +583,16 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildInfoField(nameController, 'Nom'),
+                      _buildInfoField(nameController, translatedNom),
                       const SizedBox(height: 12),
-                      _buildInfoField(emailController, 'Email'),
+                      _buildInfoField(emailController, translatedEmail),
                       const SizedBox(height: 12),
-                      _buildInfoField(phoneController, 'Téléphone'),
+                      _buildInfoField(phoneController, translatedTelephone),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
+                // Bouton Modifier
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 104),
                   child: ElevatedButton(
@@ -535,7 +606,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     onPressed: _saveUserData,
                     child: Text(
-                      'Modifier',
+                      translatedModifier,
                       style: GoogleFonts.getFont(
                         'Inter',
                         color: Colors.white,
@@ -546,6 +617,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                // Bouton Déconnexion
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 104),
                   child: OutlinedButton.icon(
@@ -567,7 +639,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       size: 20,
                     ),
                     label: Text(
-                      'Déconnexion',
+                      translatedDeconnexion,
                       style: GoogleFonts.getFont(
                         'Inter',
                         color: const Color(0xFFD19C64),
@@ -581,6 +653,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
+          // Barre de navigation inférieure
           Positioned(
             left: 0,
             right: 0,
@@ -595,6 +668,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ==================== Widget option de langue ====================
   Widget _buildLanguageOption(String language) {
     bool isSelected = selectedLanguage == language;
 
@@ -602,6 +676,7 @@ class _ProfilePageState extends State<ProfilePage> {
       onTap: () => _changeLanguage(language),
       child: Row(
         children: [
+          // Bouton radio personnalisé
           Container(
             width: 17,
             height: 17,
@@ -627,6 +702,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(width: 9),
+          // Nom de la langue
           Text(
             language,
             style: GoogleFonts.getFont(
@@ -640,6 +716,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ==================== Widget champ d'information ====================
   Widget _buildInfoField(TextEditingController controller, String hint) {
     return Container(
       width: double.infinity,

@@ -19,44 +19,22 @@ class _GestionCommandesPageState extends State<GestionCommandesPage> {
   String? userProfileImage;
   bool isLoadingUserData = true;
 
-  final List<Map<String, dynamic>> orders = [
-    {
-      'id': 'CMD #78548865',
-      'items': '3 items • 1x mlawi rosbif • 1x mlawi thon • +1 others',
-      'status': 'En cours',
-      'time': 'Aujourd\'hui à 14:22'
-    },
-    {
-      'id': 'CMD #78548866',
-      'items': '3 items • 1x mlawi rosbif • 1x mlawi thon • +1 others',
-      'status': 'Prête',
-      'time': 'Aujourd\'hui à 14:22'
-    },
-    {
-      'id': 'CMD #78548867',
-      'items': '3 items • 1x mlawi rosbif • 1x mlawi thon • +1 others',
-      'status': 'En livraison',
-      'time': 'Aujourd\'hui à 14:22'
-    },
-    {
-      'id': 'CMD #78548868',
-      'items': '2 items • 1x mlawi rosbif • 1x mlawi thon',
-      'status': 'Livrée',
-      'time': 'Aujourd\'hui à 13:15'
-    },
-    {
-      'id': 'CMD #78548869',
-      'items': '4 items • 2x mlawi rosbif • 1x mlawi thon • +1 others',
-      'status': 'En cours',
-      'time': 'Aujourd\'hui à 12:45'
-    },
-    {
-      'id': 'CMD #78548870',
-      'items': '1 items • 1x mlawi rosbif',
-      'status': 'Annulée',
-      'time': 'Aujourd\'hui à 11:30'
-    }
-  ];
+  // Status mapping between Firebase and display values
+  final Map<String, String> statusMapping = {
+    'En cours de traitement': 'En cours',
+    'Prête': 'Prête',
+    'En livraison': 'En livraison',
+    'Livrée': 'Livrée',
+    'Annulée': 'Annulée',
+  };
+
+  final Map<String, String> reverseStatusMapping = {
+    'En cours': 'En cours de traitement',
+    'Prête': 'Prête',
+    'En livraison': 'En livraison',
+    'Livrée': 'Livrée',
+    'Annulée': 'Annulée',
+  };
 
   @override
   void initState() {
@@ -109,23 +87,86 @@ class _GestionCommandesPageState extends State<GestionCommandesPage> {
     }
   }
 
-  List<Map<String, dynamic>> getFilteredOrders() {
-    if (selectedStatus == 'Tous') {
-      return orders;
+  String _formatTimestamp(Timestamp? timestamp) {
+    if (timestamp == null) return 'Date inconnue';
+
+    final dateTime = timestamp.toDate();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final orderDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    String timeStr = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+
+    if (orderDate == today) {
+      return 'Aujourd\'hui à $timeStr';
+    } else if (orderDate == today.subtract(const Duration(days: 1))) {
+      return 'Hier à $timeStr';
+    } else {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} à $timeStr';
     }
-    return orders.where((order) => order['status'] == selectedStatus).toList();
   }
 
-  void _updateOrderStatus(int index, String newStatus) {
-    setState(() {
-      orders[index]['status'] = newStatus;
-    });
+  String _formatOrderItems(List<dynamic> products) {
+    if (products.isEmpty) return 'Aucun produit';
+
+    int totalItems = 0;
+    for (var product in products) {
+      totalItems += (product['quantity'] ?? 1) as int;
+    }
+
+    String itemsText = '$totalItems item${totalItems > 1 ? 's' : ''}';
+
+    if (products.isNotEmpty) {
+      String firstItem = '${products[0]['quantity']}x ${products[0]['name']}';
+      itemsText += ' • $firstItem';
+
+      if (products.length > 1) {
+        String secondItem = '${products[1]['quantity']}x ${products[1]['name']}';
+        itemsText += ' • $secondItem';
+      }
+
+      if (products.length > 2) {
+        itemsText += ' • +${products.length - 2} autres';
+      }
+    }
+
+    return itemsText;
+  }
+
+  void _updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      // Convert display status to Firebase status
+      String firebaseStatus = reverseStatusMapping[newStatus] ?? newStatus;
+
+      await FirebaseFirestore.instance
+          .collection('commandes')
+          .doc(orderId)
+          .update({
+        'etatCommande': firebaseStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Statut de la commande mis à jour'),
+          backgroundColor: const Color(0xFFA2B84E),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('Error updating order status: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la mise à jour du statut'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredOrders = getFilteredOrders();
-
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8EC),
       body: SafeArea(
@@ -328,62 +369,163 @@ class _GestionCommandesPageState extends State<GestionCommandesPage> {
               ),
             ),
 
-            // Orders list
+            // Orders list from Firebase
             Expanded(
-              child: filteredOrders.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF5F7FB),
-                        shape: BoxShape.circle,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('commandes')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 60,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Erreur de chargement',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              fontSize: 16,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Icon(
-                        Icons.search_off,
-                        size: 50,
-                        color: Color(0xFFACACAC),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Aucune commande trouvée',
-                      style: GoogleFonts.getFont(
-                        'Poppins',
-                        color: const Color(0xFF3B2E1A),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Essayez de modifier votre filtre',
-                      style: GoogleFonts.getFont(
-                        'Poppins',
-                        color: const Color(0xFFACACAC),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: filteredOrders.length,
-                itemBuilder: (context, index) {
-                  final order = filteredOrders[index];
-                  final originalIndex = orders.indexOf(order);
+                    );
+                  }
 
-                  return CommandeCard(
-                    orderId: order['id'],
-                    items: order['items'],
-                    status: order['status'],
-                    time: order['time'],
-                    onStatusChanged: (newStatus) {
-                      _updateOrderStatus(originalIndex, newStatus);
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFD48C41),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF5F7FB),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.receipt_long,
+                              size: 50,
+                              color: Color(0xFFACACAC),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Aucune commande',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              color: const Color(0xFF3B2E1A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Les commandes apparaîtront ici',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              color: const Color(0xFFACACAC),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Filter orders based on selected status
+                  var allOrders = snapshot.data!.docs;
+                  var filteredOrders = selectedStatus == 'Tous'
+                      ? allOrders
+                      : allOrders.where((doc) {
+                    var data = doc.data() as Map<String, dynamic>;
+                    String firebaseStatus = data['etatCommande'] ?? '';
+                    String displayStatus = statusMapping[firebaseStatus] ?? firebaseStatus;
+                    return displayStatus == selectedStatus;
+                  }).toList();
+
+                  if (filteredOrders.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF5F7FB),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.search_off,
+                              size: 50,
+                              color: Color(0xFFACACAC),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Aucune commande trouvée',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              color: const Color(0xFF3B2E1A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Essayez de modifier votre filtre',
+                            style: GoogleFonts.getFont(
+                              'Poppins',
+                              color: const Color(0xFFACACAC),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: filteredOrders.length,
+                    itemBuilder: (context, index) {
+                      var orderDoc = filteredOrders[index];
+                      var orderData = orderDoc.data() as Map<String, dynamic>;
+
+                      String orderId = orderData['commandeId'] ?? orderDoc.id;
+                      List<dynamic> products = orderData['products'] ?? [];
+                      String firebaseStatus = orderData['etatCommande'] ?? 'En cours de traitement';
+                      String displayStatus = statusMapping[firebaseStatus] ?? firebaseStatus;
+                      Timestamp? createdAt = orderData['createdAt'];
+
+                      return CommandeCard(
+                        orderId: orderId,
+                        items: _formatOrderItems(products),
+                        status: displayStatus,
+                        time: _formatTimestamp(createdAt),
+                        onStatusChanged: (newStatus) {
+                          _updateOrderStatus(orderDoc.id, newStatus);
+                        },
+                      );
                     },
                   );
                 },

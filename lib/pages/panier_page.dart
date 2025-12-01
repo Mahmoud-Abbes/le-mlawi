@@ -99,7 +99,20 @@ class _PanierPageState extends State<PanierPage> {
     });
 
     try {
+      // Get user email from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String? userEmail = prefs.getString('email');
+
+      if (userEmail == null || userEmail.isEmpty) {
+        throw Exception('User email not found. Please login again.');
+      }
+
       final commandeId = 'CMD-${_generateUniqueId()}';
+
+      // Get store name from first cart item
+      String storeName = cartItems.isNotEmpty
+          ? (cartItems[0]['storeName'] ?? 'BestMlawi')
+          : 'BestMlawi';
 
       // Prepare products data using the exact cart item structure
       List<Map<String, dynamic>> products = cartItems.map((item) {
@@ -112,17 +125,18 @@ class _PanierPageState extends State<PanierPage> {
         };
       }).toList();
 
-      // Create order document
+      // Create order document with userEmail
       await FirebaseFirestore.instance.collection('commandes').doc(commandeId).set({
         'commandeId': commandeId,
+        'userEmail': userEmail,  // Store user email
+        'storeName': storeName,
         'products': products,
         'totalPrice': totalProducts,
-        'etatCommande': 'En cours',
+        'etatCommande': 'En cours de traitement',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       // Clear cart after successful order
-      final prefs = await SharedPreferences.getInstance();
       await prefs.remove('cart');
       await prefs.remove('cartTotal');
 
@@ -138,8 +152,8 @@ class _PanierPageState extends State<PanierPage> {
         ),
       );
 
-      // Navigate to consulter etat page
-      Navigator.pushReplacementNamed(context, '/consulterEtat');
+      // Navigate to commandes page
+      Navigator.pushReplacementNamed(context, '/commandes');
     } catch (e) {
       setState(() {
         isPlacingOrder = false;
