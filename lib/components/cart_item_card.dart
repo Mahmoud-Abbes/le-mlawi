@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/global_params.dart';
+import '../config/translation_config.dart';
 
-class CartItemCard extends StatelessWidget {
+class CartItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final Function(int) onQuantityChanged;
   final VoidCallback onRemove;
@@ -15,29 +16,94 @@ class CartItemCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final product = GlobalParams.getProductById(item['productId']);
-    final quantity = item['quantity'] ?? 1;
-    final totalPrice = item['totalPrice'] * quantity;
+  State<CartItemCard> createState() => _CartItemCardState();
+}
 
-    // Build supplements text
+class _CartItemCardState extends State<CartItemCard> {
+  // ==================== Variables pour les traductions ====================
+  String translatedProductName = '';
+  Map<String, String> translatedSupplements = {};
+  String translatedBeverageName = '';
+
+  // ==================== Initialisation ====================
+  @override
+  void initState() {
+    super.initState();
+    _loadTranslations();
+  }
+
+  // ==================== Mise à jour lors du changement de widget ====================
+  @override
+  void didUpdateWidget(CartItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _loadTranslations();
+    }
+  }
+
+  // ==================== Chargement des traductions ====================
+  Future<void> _loadTranslations() async {
+    // Traduire le nom du produit
+    translatedProductName = await translate(widget.item['productName'] ?? '');
+
+    // Traduire les suppléments
+    if (widget.item['supplements'] != null && (widget.item['supplements'] as List).isNotEmpty) {
+      for (var supp in (widget.item['supplements'] as List)) {
+        String suppName = supp['name'].toString();
+        translatedSupplements[suppName] = await translate(suppName);
+      }
+    }
+
+    // Traduire la boisson
+    if (widget.item['beverage'] != null) {
+      String beverageName = widget.item['beverage']['name'];
+      translatedBeverageName = await translate(beverageName);
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // ==================== Construction du texte des suppléments ====================
+  String _buildSupplementsText() {
     String supplementsText = '';
-    if (item['supplements'] != null && (item['supplements'] as List).isNotEmpty) {
-      List<String> supplementNames = (item['supplements'] as List)
-          .map((supp) => supp['name'].toString())
+
+    // Ajouter les suppléments
+    if (widget.item['supplements'] != null && (widget.item['supplements'] as List).isNotEmpty) {
+      List<String> supplementNames = (widget.item['supplements'] as List)
+          .map((supp) {
+        String originalName = supp['name'].toString();
+        return translatedSupplements[originalName] ?? originalName;
+      })
           .toList();
       supplementsText = '+${supplementNames.join(', ')}';
     }
 
-    // Add beverage if exists
-    if (item['beverage'] != null) {
+    // Ajouter la boisson si elle existe
+    if (widget.item['beverage'] != null) {
       if (supplementsText.isNotEmpty) {
         supplementsText += ', ';
       } else {
         supplementsText = '+';
       }
-      supplementsText += item['beverage']['name'];
+      supplementsText += translatedBeverageName.isNotEmpty
+          ? translatedBeverageName
+          : widget.item['beverage']['name'];
     }
+
+    return supplementsText;
+  }
+
+  // ==================== Interface utilisateur ====================
+  @override
+  Widget build(BuildContext context) {
+    final product = GlobalParams.getProductById(widget.item['productId']);
+    final quantity = widget.item['quantity'] ?? 1;
+    final totalPrice = widget.item['totalPrice'] * quantity;
+
+    // Construire le texte des suppléments traduit
+    String supplementsText = _buildSupplementsText();
 
     return Container(
       height: 109,
@@ -59,7 +125,7 @@ class CartItemCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Product image
+          // Image du produit
           Positioned(
             left: 7,
             top: 8,
@@ -82,13 +148,13 @@ class CartItemCard extends StatelessWidget {
             ),
           ),
 
-          // Product name
+          // Nom du produit
           Positioned(
             left: 112,
             top: 14,
             right: 50,
             child: Text(
-              item['productName'],
+              translatedProductName.isNotEmpty ? translatedProductName : widget.item['productName'],
               style: GoogleFonts.getFont(
                 'Inter',
                 color: const Color(0xFF3B2E1A),
@@ -100,7 +166,7 @@ class CartItemCard extends StatelessWidget {
             ),
           ),
 
-          // Supplements/Beverage info
+          // Informations suppléments/boisson
           if (supplementsText.isNotEmpty)
             Positioned(
               left: 112,
@@ -118,7 +184,7 @@ class CartItemCard extends StatelessWidget {
               ),
             ),
 
-          // Price
+          // Prix
           Positioned(
             left: 112,
             bottom: 14,
@@ -132,12 +198,12 @@ class CartItemCard extends StatelessWidget {
             ),
           ),
 
-          // Remove button (X)
+          // Bouton de suppression (X)
           Positioned(
             right: 8,
             top: 8,
             child: GestureDetector(
-              onTap: onRemove,
+              onTap: widget.onRemove,
               child: Container(
                 padding: const EdgeInsets.all(4),
                 child: Image.network(
@@ -150,7 +216,7 @@ class CartItemCard extends StatelessWidget {
             ),
           ),
 
-          // Quantity controls
+          // Contrôles de quantité
           Positioned(
             right: 7,
             bottom: 14,
@@ -164,13 +230,13 @@ class CartItemCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Minus button
+                  // Bouton moins
                   GestureDetector(
                     onTap: () {
                       if (quantity > 1) {
-                        onQuantityChanged(quantity - 1);
+                        widget.onQuantityChanged(quantity - 1);
                       } else {
-                        onRemove();
+                        widget.onRemove();
                       }
                     },
                     child: Container(
@@ -192,7 +258,7 @@ class CartItemCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Quantity text
+                  // Texte de quantité
                   Text(
                     quantity.toString(),
                     style: GoogleFonts.getFont(
@@ -202,10 +268,10 @@ class CartItemCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Plus button
+                  // Bouton plus
                   GestureDetector(
                     onTap: () {
-                      onQuantityChanged(quantity + 1);
+                      widget.onQuantityChanged(quantity + 1);
                     },
                     child: Container(
                       width: 20,

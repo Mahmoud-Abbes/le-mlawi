@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../config/translation_config.dart';
 
-class BottomNavBarAdmin extends StatefulWidget {
+class BottomNavBarAdmin extends StatelessWidget {
   final int selectedIndex;
   final void Function(int index) onItemTapped;
 
@@ -12,11 +11,6 @@ class BottomNavBarAdmin extends StatefulWidget {
     required this.onItemTapped,
   }) : super(key: key);
 
-  @override
-  State<BottomNavBarAdmin> createState() => _BottomNavBarAdminState();
-}
-
-class _BottomNavBarAdminState extends State<BottomNavBarAdmin> {
   static const List<Map<String, String>> navItems = [
     {
       'label': 'Commandes',
@@ -29,31 +23,6 @@ class _BottomNavBarAdminState extends State<BottomNavBarAdmin> {
       'route': '/admin_profile'
     },
   ];
-
-  // Store translated labels
-  Map<String, String> translatedLabels = {};
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTranslations();
-  }
-
-  Future<void> _loadTranslations() async {
-    // Translate all labels
-    for (var item in navItems) {
-      final label = item['label']!;
-      final translated = await translate(label);
-      translatedLabels[label] = translated;
-    }
-
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +58,7 @@ class _BottomNavBarAdminState extends State<BottomNavBarAdmin> {
       String route,
       int index,
       ) {
-    bool isSelected = widget.selectedIndex == index;
+    bool isSelected = selectedIndex == index;
 
     return Expanded(
       child: Material(
@@ -115,9 +84,8 @@ class _BottomNavBarAdminState extends State<BottomNavBarAdmin> {
                       : const Color(0xFF636363),
                 ),
                 const SizedBox(height: 5),
-                // Display translated label
                 Text(
-                  translatedLabels[label] ?? label,
+                  label,
                   style: GoogleFonts.getFont(
                     'Inter',
                     color: isSelected

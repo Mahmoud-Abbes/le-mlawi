@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../config/global_params.dart';
+import 'dart:math';
 
 class ChatMessage {
   final String text;
   final bool isBot;
   final DateTime timestamp;
-  final List<String>? quickReplies;
-  final String? messageType;
 
   ChatMessage({
     required this.text,
     required this.isBot,
     required this.timestamp,
-    this.quickReplies,
-    this.messageType = 'text',
   });
 }
 
@@ -38,12 +38,8 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
   bool isTyping = false;
 
   final List<Map<String, String>> predefinedQuestions = [
-    {'question': '🛍 Quels produits avez-vous?', 'category': 'produits'},
-    {'question': '🚚 Comment fonctionne la livraison?', 'category': 'livraison'},
-    {'question': '💰 Quel est le prix?', 'category': 'prix'},
-    {'question': '📞 Comment contacter le support?', 'category': 'support'},
-    {'question': '❓ Comment passer une commande?', 'category': 'commande'},
-    {'question': '🔄 Quelle est votre politique de retour?', 'category': 'retour'},
+    {'question': '📦 Voir mes commandes', 'action': 'mes_commandes'},
+    {'question': '🎲 Suggérer un produit', 'action': 'suggestion'},
   ];
 
   @override
@@ -56,69 +52,143 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
     if (chatMessages.isEmpty) {
       setState(() {
         chatMessages.add(ChatMessage(
-          text: 'Bonjour! 👋 Je suis l\'assistant BestMlawi. Comment puis-je vous aider aujourd\'hui?',
+          text: 'Bonjour! 👋 Je peux vous aider à consulter vos commandes ou vous suggérer des produits!',
           isBot: true,
           timestamp: DateTime.now(),
-          messageType: 'welcome',
         ));
       });
     }
   }
 
-  String _generateDetailedResponse(String userMessage) {
-    String lowerMessage = userMessage.toLowerCase();
+  Future<String> _handleUserQuery(String query) async {
+    String lowerQuery = query.toLowerCase();
 
-    if (lowerMessage.contains('produit') || lowerMessage.contains('quoi')) {
-      return 'Nous proposons une large gamme de produits de haute qualité!\n\n'
-          '📦 Nos catégories principales:\n'
-          '• Électronique\n• Mode\n• Maison\n• Beauté\n• Sport\n\n'
-          '✨ Tous nos produits sont:\n'
-          '• Contrôlés de qualité\n• Avec garantie\n• Livrés rapidement\n\n'
-          'Vous pouvez rechercher par catégorie ou utiliser la barre de recherche!';
-    }
-    else if (lowerMessage.contains('livraison')) {
-      return '🚚 Informations de livraison:\n\n'
-          '⏱ Délais:\n• Livraison standard: 2-3 jours\n• Livraison express: 24h\n\n'
-          '🗺 Zones de couverture:\n• Tunis et proches banlieues\n• Région côtière\n• Autres régions sur demande\n\n'
-          '💵 Frais de livraison:\n• À partir de 5 DT\n• Gratuite à partir de 100 DT';
-    }
-    else if (lowerMessage.contains('prix') || lowerMessage.contains('coût')) {
-      return '💰 Politique tarifaire:\n\n'
-          '💎 Nos prix:\n• Compétitifs et transparents\n• Sans frais cachés\n• Affichés TTC\n\n'
-          '🎁 Promotions actuelles:\n• Réductions saisonnières\n• Offres spéciales membres\n• Codes promo réguliers';
-    }
-    else if (lowerMessage.contains('support') || lowerMessage.contains('contact')) {
-      return '📞 Nous sommes là pour vous!\n\n'
-          '💬 Canaux de contact:\n• Chat en direct: 24h/24\n• Email: support@bestmlawi.tn\n• Téléphone: +216 XX XXX XXX\n\n'
-          '🕐 Horaires:\n• Lun-Ven: 8h-20h\n• Sam: 9h-18h\n• Dim: 10h-16h';
-    }
-    else if (lowerMessage.contains('commande') || lowerMessage.contains('commander')) {
-      return '📋 Comment passer une commande:\n\n'
-          '1️⃣ Recherchez vos produits\n2️⃣ Sélectionnez les produits\n3️⃣ Procédez à la commande\n4️⃣ Confirmez le paiement\n5️⃣ Recevez votre colis';
-    }
-    else if (lowerMessage.contains('retour') || lowerMessage.contains('remboursement')) {
-      return '🔄 Politique de retour:\n\n'
-          '📅 Délai de rétractation:\n• 14 jours à partir de la réception\n• Sans justification\n• Gratuit\n\n'
-          '✅ Conditions:\n• Produit non utilisé\n• Emballage intact\n• Avec tous les accessoires';
-    }
-    else if (lowerMessage.contains('paiement')) {
-      return '💳 Modes de paiement:\n\n'
-          '🏦 Options disponibles:\n• Carte bancaire (Visa/Mastercard)\n• Virement bancaire\n• Porte-monnaie digital\n• Paiement à la livraison\n\n'
-          '🔒 Sécurité:\n• Chiffrement SSL 256-bit\n• Données protégées\n• Conforme PCI DSS';
-    }
-    else if (lowerMessage.contains('compte') || lowerMessage.contains('profil')) {
-      return '👤 Gestion de compte:\n\n'
-          '📝 Inscription:\n• Gratuite et rapide\n• Email + mot de passe\n• Confirmation par email\n\n'
-          '👥 Avantages membres:\n• Historique d\'achats\n• Adresses sauvegardées\n• Programme de fidélité\n• Offres exclusives';
-    }
-    else {
-      return '🤔 Je n\'ai pas bien compris votre question.\n\n'
-          '📚 Je peux vous aider avec:\n• 🛍 Recherche de produits\n• 🚚 Informations de livraison\n• 💰 Tarification\n• 📞 Support client\n• 📋 Passage de commande\n• 🔄 Retours\n• 💳 Paiements\n• 👤 Compte utilisateur\n\n'
-          'Pouvez-vous préciser votre question?';
+    if (lowerQuery.contains('commande') || lowerQuery.contains('mes commandes')) {
+      return await _getMyOrders();
+    } else if (lowerQuery.contains('suggér') || lowerQuery.contains('produit') ||
+        lowerQuery.contains('recommande') || lowerQuery.contains('suggestion')) {
+      return _suggestRandomProduct();
+    } else {
+      return _handleUnknownQuery();
     }
   }
 
-  void _sendChatMessage() {
+  String _handleUnknownQuery() {
+    return '🤔 Désolé, je n\'ai pas compris votre question.\n\n'
+        '✨ Voici ce que je peux faire:\n\n'
+        '📦 Consulter vos commandes\n'
+        '🎲 Suggérer un produit aléatoire\n\n'
+        'Utilisez les boutons ci-dessous ou tapez votre question!';
+  }
+
+  Future<String> _getMyOrders() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return '🔒 Vous devez être connecté pour voir vos commandes.';
+      }
+
+      // Try without orderBy first to avoid index issues
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('commandes')
+          .where('userEmail', isEqualTo: user.email)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return '📦 Vous n\'avez aucune commande pour le moment.\n\nCommencez vos achats!';
+      }
+
+      // Sort manually and take first 5
+      var sortedDocs = querySnapshot.docs.toList();
+      sortedDocs.sort((a, b) {
+        Timestamp? aTime = a.data()['createdAt'] as Timestamp?;
+        Timestamp? bTime = b.data()['createdAt'] as Timestamp?;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+
+      String response = '📦 Vos commandes récentes:\n\n';
+      int count = 0;
+
+      for (var doc in sortedDocs.take(5)) {
+        count++;
+        final data = doc.data();
+        String orderId = data['commandeId'] ?? doc.id;
+        String status = data['etatCommande'] ?? 'En cours';
+        dynamic totalPriceData = data['totalPrice'];
+
+        double total = 0.0;
+        if (totalPriceData is num) {
+          total = totalPriceData.toDouble();
+        } else if (totalPriceData is String) {
+          total = double.tryParse(totalPriceData) ?? 0.0;
+        }
+
+        Timestamp? createdAt = data['createdAt'] as Timestamp?;
+
+        String date = 'Date inconnue';
+        if (createdAt != null) {
+          final dateTime = createdAt.toDate();
+          date = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+        }
+
+        response += '${count}. Commande #${orderId.substring(0, min(8, orderId.length))}\n';
+        response += '   📍 Statut: $status\n';
+        response += '   📅 Date: $date\n';
+        response += '   💰 Total: ${total.toStringAsFixed(3)} DT\n\n';
+      }
+
+      return response + 'Voulez-vous une suggestion de produit? 🎲';
+    } catch (e) {
+      print('Error getting orders: $e');
+      return '❌ Erreur: ${e.toString()}\n\nVérifiez vos données.';
+    }
+  }
+
+  String _suggestRandomProduct() {
+    try {
+      if (GlobalParams.products.isEmpty) {
+        return '🛍️ Aucun produit disponible pour le moment.\n\nRevenez plus tard!';
+      }
+
+      // Get random product
+      final random = Random();
+      final randomProduct = GlobalParams.products[random.nextInt(GlobalParams.products.length)];
+
+      String name = randomProduct['name'] ?? 'Produit sans nom';
+      dynamic priceData = randomProduct['price'];
+
+      double price = 0.0;
+      if (priceData is num) {
+        price = priceData.toDouble();
+      } else if (priceData is String) {
+        price = double.tryParse(priceData) ?? 0.0;
+      }
+
+      String category = randomProduct['category'] ?? 'Général';
+      String description = randomProduct['description'] ?? 'Pas de description disponible';
+
+      String response = '🎲 Suggestion du jour:\n\n';
+      response += '✨ $name\n\n';
+      response += '💰 Prix: ${price.toStringAsFixed(3)} DT\n';
+      response += '🏷️ Catégorie: $category\n\n';
+
+      if (description.length > 100) {
+        response += '📝 ${description.substring(0, 100)}...\n\n';
+      } else {
+        response += '📝 $description\n\n';
+      }
+
+      response += 'Intéressé? Recherchez-le dans l\'application!';
+
+      return response;
+    } catch (e) {
+      print('Error suggesting product: $e');
+      return '❌ Impossible de suggérer un produit pour le moment.';
+    }
+  }
+
+  void _sendChatMessage() async {
     if (chatController.text.isEmpty) return;
 
     String userMessage = chatController.text;
@@ -133,7 +203,61 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
       isTyping = true;
     });
 
-    // Auto-scroll to bottom
+    _scrollToBottom();
+
+    // Small delay for better UX
+    await Future.delayed(Duration(milliseconds: 500));
+
+    String botResponse = await _handleUserQuery(userMessage);
+
+    setState(() {
+      chatMessages.add(ChatMessage(
+        text: botResponse,
+        isBot: true,
+        timestamp: DateTime.now(),
+      ));
+      isTyping = false;
+    });
+
+    _scrollToBottom();
+  }
+
+  void _selectPredefinedQuestion(String question, String action) async {
+    setState(() {
+      chatMessages.add(ChatMessage(
+        text: question,
+        isBot: false,
+        timestamp: DateTime.now(),
+      ));
+      isTyping = true;
+    });
+
+    _scrollToBottom();
+
+    await Future.delayed(Duration(milliseconds: 500));
+
+    String botResponse;
+    if (action == 'mes_commandes') {
+      botResponse = await _getMyOrders();
+    } else if (action == 'suggestion') {
+      botResponse = _suggestRandomProduct();
+    } else {
+      botResponse = _handleUnknownQuery();
+    }
+
+    setState(() {
+      chatMessages.add(ChatMessage(
+        text: botResponse,
+        isBot: true,
+        timestamp: DateTime.now(),
+      ));
+      isTyping = false;
+    });
+
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
     Future.delayed(Duration(milliseconds: 100), () {
       if (_chatScrollController.hasClients) {
         _chatScrollController.animateTo(
@@ -143,37 +267,6 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
         );
       }
     });
-
-    // Simulate bot thinking and response
-    Future.delayed(Duration(milliseconds: 1200), () {
-      String botResponse = _generateDetailedResponse(userMessage);
-
-      setState(() {
-        chatMessages.add(ChatMessage(
-          text: botResponse,
-          isBot: true,
-          timestamp: DateTime.now(),
-          messageType: 'text',
-        ));
-        isTyping = false;
-      });
-
-      // Auto-scroll after bot response
-      Future.delayed(Duration(milliseconds: 100), () {
-        if (_chatScrollController.hasClients) {
-          _chatScrollController.animateTo(
-            _chatScrollController.position.maxScrollExtent,
-            duration: Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    });
-  }
-
-  void _selectPredefinedQuestion(String question) {
-    chatController.text = question.replaceFirst(RegExp(r'^[🛍🚚💰📞📋🔄] '), '');
-    _sendChatMessage();
   }
 
   @override
@@ -311,26 +404,21 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
                           width: 1,
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: chatController,
-                              onSubmitted: (_) => _sendChatMessage(),
-                              maxLines: 1,
-                              decoration: InputDecoration(
-                                hintText: 'Votre message...',
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                hintStyle: GoogleFonts.getFont(
-                                  'Poppins',
-                                  color: Colors.grey[400],
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
+                      child: TextField(
+                        controller: chatController,
+                        onSubmitted: (_) => _sendChatMessage(),
+                        maxLines: 1,
+                        decoration: InputDecoration(
+                          hintText: 'Votre message...',
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          hintStyle: GoogleFonts.getFont(
+                            'Poppins',
+                            color: Colors.grey[400],
+                            fontSize: 13,
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -367,7 +455,9 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: message.isBot ? const Color(0xFFF5F7FB) : const Color(0xFFD48C41),
+          color: message.isBot
+              ? const Color(0xFFF5F7FB)
+              : const Color(0xFFD48C41),
           borderRadius: BorderRadius.circular(16),
         ),
         constraints: const BoxConstraints(maxWidth: 280),
@@ -375,7 +465,8 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
           message.text,
           style: GoogleFonts.getFont(
             'Poppins',
-            color: message.isBot ? const Color(0xFF3B2E1A) : Colors.white,
+            color:
+            message.isBot ? const Color(0xFF3B2E1A) : Colors.white,
             fontSize: 13,
             height: 1.4,
           ),
@@ -469,7 +560,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Je suis l\'assistant BestMlawi',
+              'Commandes et suggestions de produits',
               textAlign: TextAlign.center,
               style: GoogleFonts.getFont(
                 'Poppins',
@@ -479,7 +570,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
             ),
             const SizedBox(height: 25),
             Text(
-              'Questions fréquentes:',
+              'Actions rapides:',
               style: GoogleFonts.getFont(
                 'Poppins',
                 color: const Color(0xFF3B2E1A),
@@ -492,7 +583,10 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: GestureDetector(
-                  onTap: () => _selectPredefinedQuestion(item['question']!),
+                  onTap: () => _selectPredefinedQuestion(
+                    item['question']!,
+                    item['action']!,
+                  ),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),

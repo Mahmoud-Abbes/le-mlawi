@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: ConnexionPage(),
+      home: BienvenuePage1(),
       routes: {
         '/home': (context) => PageAcceuil(),
         '/commandes': (context) => CommandesPage(),

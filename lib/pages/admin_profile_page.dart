@@ -17,7 +17,6 @@ class AdminProfilePage extends StatefulWidget {
 }
 
 class _AdminProfilePageState extends State<AdminProfilePage> {
-  String selectedLanguage = 'Français';
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
@@ -53,21 +52,18 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             emailController.text = data['email'] ?? user.email ?? '';
             phoneController.text = data['telephone'] ?? '';
             profileImageUrl = data['profileImageUrl'];
-            selectedLanguage = data['selectedLanguage'] ?? 'Français';
           });
 
           await prefs.setString('nom', nameController.text);
           await prefs.setString('email', emailController.text);
           await prefs.setString('telephone', phoneController.text);
           await prefs.setString('profileImageUrl', profileImageUrl ?? '');
-          await prefs.setString('selectedLanguage', selectedLanguage);
         } else {
           setState(() {
             nameController.text = prefs.getString('nom') ?? '';
             emailController.text = prefs.getString('email') ?? user.email ?? '';
             phoneController.text = prefs.getString('telephone') ?? '';
             profileImageUrl = prefs.getString('profileImageUrl');
-            selectedLanguage = prefs.getString('selectedLanguage') ?? 'Français';
           });
         }
       }
@@ -198,7 +194,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         'nom': nameController.text.trim(),
         'email': emailController.text.trim(),
         'telephone': phoneController.text.trim(),
-        'selectedLanguage': selectedLanguage,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -206,7 +201,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       await prefs.setString('nom', nameController.text.trim());
       await prefs.setString('email', emailController.text.trim());
       await prefs.setString('telephone', phoneController.text.trim());
-      await prefs.setString('selectedLanguage', selectedLanguage);
 
       setState(() {
         isLoading = false;
@@ -234,38 +228,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         );
       }
       print('Error saving user data: $e');
-    }
-  }
-
-  Future<void> _changeLanguage(String language) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      setState(() {
-        selectedLanguage = language;
-      });
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set({
-        'selectedLanguage': language,
-      }, SetOptions(merge: true));
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selectedLanguage', language);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Langue changée en $language'),
-            backgroundColor: const Color(0xFFD48C41),
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error changing language: $e');
     }
   }
 
@@ -476,30 +438,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Choisir langue de l\'application',
-                        style: GoogleFonts.getFont(
-                          'Roboto',
-                          color: const Color(0xFF3B2E1A),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildLanguageOption('Français'),
-                      const SizedBox(height: 10),
-                      _buildLanguageOption('English'),
-                      const SizedBox(height: 10),
-                      _buildLanguageOption('العربية'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 26),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 36),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
                         'Modifier vos informations',
                         style: GoogleFonts.getFont(
                           'Roboto',
@@ -511,7 +449,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                       const SizedBox(height: 12),
                       _buildInfoField(nameController, 'Nom'),
                       const SizedBox(height: 12),
-                      _buildInfoField(emailController, 'Email'),
+                      _buildInfoField(emailController, 'Email', readOnly: true),
                       const SizedBox(height: 12),
                       _buildInfoField(phoneController, 'Téléphone'),
                     ],
@@ -573,7 +511,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 120),
+                const SizedBox(height: 270),
               ],
             ),
           ),
@@ -596,57 +534,12 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     );
   }
 
-  Widget _buildLanguageOption(String language) {
-    bool isSelected = selectedLanguage == language;
-
-    return GestureDetector(
-      onTap: () => _changeLanguage(language),
-      child: Row(
-        children: [
-          Container(
-            width: 17,
-            height: 17,
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              border: Border.all(
-                width: 1.1,
-                color: const Color(0xFF877C6B),
-              ),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Center(
-              child: isSelected
-                  ? Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B2E1A),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-              )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 9),
-          Text(
-            language,
-            style: GoogleFonts.getFont(
-              'Roboto',
-              color: const Color(0xFF3B2E1A),
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoField(TextEditingController controller, String hint) {
+  Widget _buildInfoField(TextEditingController controller, String hint, {bool readOnly = false}) {
     return Container(
       width: double.infinity,
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8EC),
+        color: readOnly ? const Color(0xFFF5F5F5) : const Color(0xFFFFF8EC),
         border: Border.all(
           width: 1.7,
           color: const Color(0xFFCCC5C5),
@@ -656,9 +549,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       child: Center(
         child: TextField(
           controller: controller,
+          readOnly: readOnly,
           style: GoogleFonts.getFont(
             'Poppins',
-            color: const Color(0xFF393939),
+            color: readOnly ? const Color(0xFF9E9E9E) : const Color(0xFF393939),
             fontSize: 13,
           ),
           decoration: InputDecoration(

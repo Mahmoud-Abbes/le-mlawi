@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../components/consulter_product_card.dart';
+import '../config/translation_config.dart';
 import 'dart:math';
 
 class EtatCommandePage extends StatefulWidget {
@@ -17,12 +18,58 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
   Map<String, dynamic>? orderData;
   bool isLoading = true;
 
+  // ============================================================================
+  // TRADUCTIONS
+  // ============================================================================
+  Map<String, String> translations = {};
+  bool isLoadingTranslations = true;
+
   @override
   void initState() {
     super.initState();
+    _loadTranslations();
     _loadOrderData();
   }
 
+  Future<void> _loadTranslations() async {
+    final keys = [
+      'Commande annulée avec succès',
+      'Erreur',
+      'Commande introuvable',
+      'Statut de livraison',
+      'En cours',
+      'Prête',
+      'En livraison',
+      'Livré',
+      'Cette commande a été annulée',
+      'En cours de traitement',
+      'En préparation',
+      'Prête pour livraison',
+      'En cours de livraison',
+      'Livrée avec succès',
+      'Annulée',
+      'Produits',
+      'Annuler commande',
+      'Annuler la commande',
+      'Êtes-vous sûr de vouloir annuler cette commande?',
+      'Non',
+      'Oui',
+    ];
+
+    for (var key in keys) {
+      translations[key] = await translate(key);
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoadingTranslations = false;
+      });
+    }
+  }
+
+  // ============================================================================
+  // CHARGEMENT DES DONNÉES
+  // ============================================================================
   Future<void> _loadOrderData() async {
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -50,6 +97,9 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
     }
   }
 
+  // ============================================================================
+  // ANNULATION DE COMMANDE
+  // ============================================================================
   Future<void> _cancelOrder() async {
     try {
       String docId = orderData!['docId'];
@@ -67,8 +117,9 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Commande annulée avec succès'),
+          SnackBar(
+            content: Text(translations['Commande annulée avec succès'] ??
+                'Commande annulée avec succès'),
             backgroundColor: Colors.red,
           ),
         );
@@ -78,7 +129,8 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(
+                '${translations['Erreur'] ?? 'Erreur'}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -86,6 +138,9 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
     }
   }
 
+  // ============================================================================
+  // UTILITAIRES DE STATUT
+  // ============================================================================
   int _getStatusStep(String status) {
     switch (status.toLowerCase()) {
       case 'en cours de traitement':
@@ -112,17 +167,17 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
   String _getStatusText(String status) {
     switch (status.toLowerCase()) {
       case 'en cours':
-        return 'En cours de traitement';
+        return translations['En cours de traitement'] ?? 'En cours de traitement';
       case 'en préparation':
-        return 'En préparation';
+        return translations['En préparation'] ?? 'En préparation';
       case 'prête':
-        return 'Prête pour livraison';
+        return translations['Prête pour livraison'] ?? 'Prête pour livraison';
       case 'en livraison':
-        return 'En cours de livraison';
+        return translations['En cours de livraison'] ?? 'En cours de livraison';
       case 'livrée':
-        return 'Livrée avec succès';
+        return translations['Livrée avec succès'] ?? 'Livrée avec succès';
       case 'annulée':
-        return 'Annulée';
+        return translations['Annulée'] ?? 'Annulée';
       default:
         return status;
     }
@@ -154,6 +209,9 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
         lowerStatus.contains('prête');
   }
 
+  // ============================================================================
+  // INTERFACE UTILISATEUR
+  // ============================================================================
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -181,7 +239,8 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Commande introuvable',
+                translations['Commande introuvable'] ??
+                    'Commande introuvable',
                 style: GoogleFonts.getFont(
                   'Inter',
                   fontSize: 16,
@@ -197,621 +256,408 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
     String status = orderData!['etatCommande'] ?? 'En cours';
     int currentStep = _getStatusStep(status);
     List<dynamic> products = orderData!['products'] ?? [];
-    bool isCancelled = status.toLowerCase() == 'annulé' || status.toLowerCase() == 'annulée';
-    bool isDelivered = status.toLowerCase().contains('livré');
+    bool isCancelled =
+        status.toLowerCase() == 'annulé' || status.toLowerCase() == 'annulée';
     bool canCancel = _canCancelOrder(status);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        width: 402,
+      body: SizedBox(
+        width: double.infinity,
         height: 874,
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
+        child: Stack(
+          children: [
+            Container(
+              width: 402,
+              height: 874,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8EC),
+                borderRadius: BorderRadius.circular(27),
+              ),
+            ),
+
+            // Retour
+            Positioned(
+              left: 15,
+              top: 31,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 402,
-                  height: 874,
-                  clipBehavior: Clip.hardEdge,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8EC),
-                    borderRadius: BorderRadius.circular(27),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(11),
                   ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 26,
+              top: 42,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Transform.rotate(
+                  angle: 180 * pi / 180,
+                  child: Image.network(
+                    'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F33a3bbb97c5a949d4419852f6eb37cf8e75609ebimage%2021.png?alt=media&token=8c9d9dd4-0a40-407f-8eb9-f031b954ba6e',
+                    width: 18,
+                    height: 18,
+                  ),
+                ),
+              ),
+            ),
+
+            // Titre
+            Positioned(
+              left: 24,
+              top: 89,
+              child: Text(
+                translations['Statut de livraison'] ??
+                    'Statut de livraison',
+                style: GoogleFonts.getFont(
+                  'Inter',
+                  color: const Color(0xFF3B2E1A),
+                  fontSize: 25,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            // If not cancelled, show steps
+            if (!isCancelled) ...[
+              // Labels
+              Positioned(
+                left: 19,
+                top: 174,
+                child: Text(
+                  translations['En cours'] ?? 'En cours',
+                  style: GoogleFonts.getFont(
+                    'Inter',
+                    color: currentStep >= 0
+                        ? Colors.black
+                        : const Color(0xFF878787),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
+              Positioned(
+                left: 132,
+                top: 174,
+                child: Text(
+                  translations['Prête'] ?? 'Prête',
+                  style: GoogleFonts.getFont(
+                    'Inter',
+                    color: currentStep >= 2
+                        ? Colors.black
+                        : const Color(0xFF878787),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
+              Positioned(
+                left: 214,
+                top: 174,
+                child: Text(
+                  translations['En livraison'] ?? 'En livraison',
+                  style: GoogleFonts.getFont(
+                    'Inter',
+                    color: currentStep >= 3
+                        ? Colors.black
+                        : const Color(0xFF878787),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
+              Positioned(
+                left: 346,
+                top: 174,
+                child: Text(
+                  translations['Livré'] ?? 'Livré',
+                  style: GoogleFonts.getFont(
+                    'Inter',
+                    color: currentStep >= 4
+                        ? Colors.black
+                        : const Color(0xFF878787),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+
+              // Progress bar
+              Positioned(
+                left: 26,
+                top: 204,
+                child: SizedBox(
+                  width: 354,
+                  height: 33,
                   child: Stack(
-                    clipBehavior: Clip.none,
                     children: [
-                      // Back button
+                      // Lines
                       Positioned(
-                        left: 15,
-                        top: 31,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
+                        left: 33,
+                        top: 16,
+                        child: Container(
+                          width: 74,
+                          height: 4,
+                          color: currentStep > 0
+                              ? const Color(0xFFE3B664)
+                              : const Color(0xFFE4E4E4),
+                        ),
+                      ),
+                      Positioned(
+                        left: 140,
+                        top: 16,
+                        child: Container(
+                          width: 74,
+                          height: 4,
+                          color: currentStep > 2
+                              ? const Color(0xFFE3B664)
+                              : const Color(0xFFE4E4E4),
+                        ),
+                      ),
+                      Positioned(
+                        left: 247,
+                        top: 16,
+                        child: Container(
+                          width: 74,
+                          height: 4,
+                          color: currentStep > 3
+                              ? const Color(0xFFE3B664)
+                              : const Color(0xFFE4E4E4),
+                        ),
+                      ),
+
+                      // Step 0
+                      if (currentStep == 0)
+                        Positioned(
+                          left: 6.5,
+                          top: 6.5,
                           child: Container(
-                            width: 40,
-                            height: 40,
-                            clipBehavior: Clip.hardEdge,
+                            width: 20,
+                            height: 20,
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(11),
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 26,
-                        top: 42,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Transform.rotate(
-                            angle: 180 * pi / 180,
-                            child: Image.network(
-                              'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F33a3bbb97c5a949d4419852f6eb37cf8e75609ebimage%2021.png?alt=media&token=8c9d9dd4-0a40-407f-8eb9-f031b954ba6e',
-                              width: 18,
-                              height: 18,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Title
-                      Positioned(
-                        left: 24,
-                        top: 89,
-                        child: Text(
-                          'Statut de livraison',
-                          style: GoogleFonts.getFont(
-                            'Inter',
-                            color: const Color(0xFF3B2E1A),
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                      // Status labels
-                      if (!isCancelled) ...[
+                        )
+                      else if (currentStep > 0)
                         Positioned(
-                          left: 19,
-                          top: 174,
-                          child: SizedBox(
-                            width: 59,
-                            height: 19,
-                            child: Text(
-                              'En cours',
-                              style: GoogleFonts.getFont(
-                                'Inter',
-                                color: currentStep >= 0 ? Colors.black : const Color(0xFF878787),
-                                fontSize: 13,
+                          left: 0,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                            child: Center(
+                              child: Image.network(
+                                'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2F070fd70f-f69f-4a9d-ba62-8f638a445402.png',
+                                width: 16,
+                                height: 11,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
-                        ),
+                        )
+                      else
                         Positioned(
-                          left: 132,
-                          top: 174,
-                          child: SizedBox(
-                            width: 37,
-                            height: 19,
-                            child: Text(
-                              'Prête',
-                              style: GoogleFonts.getFont(
-                                'Inter',
-                                color: currentStep >= 2 ? Colors.black : const Color(0xFF878787),
-                                fontSize: 13,
+                          left: 0,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                width: 3,
+                                color: const Color(0xFFE4E4E4),
                               ),
+                              borderRadius: BorderRadius.circular(17),
                             ),
                           ),
                         ),
+
+                      // Step 2 - Prête
+                      if (currentStep == 2)
+                        Positioned(
+                          left: 113.5,
+                          top: 6.5,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        )
+                      else if (currentStep > 2)
+                        Positioned(
+                          left: 107,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                            child: Center(
+                              child: Image.network(
+                                'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
+                                width: 16,
+                                height: 11,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Positioned(
+                          left: 107,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                width: 3,
+                                color: const Color(0xFFE4E4E4),
+                              ),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                          ),
+                        ),
+
+                      // Step 3 - En livraison
+                      if (currentStep == 3)
+                        Positioned(
+                          left: 220.5,
+                          top: 6.5,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        )
+                      else if (currentStep > 3)
                         Positioned(
                           left: 214,
-                          top: 174,
-                          child: SizedBox(
-                            width: 77,
-                            height: 19,
-                            child: Text(
-                              'En livraison',
-                              style: GoogleFonts.getFont(
-                                'Inter',
-                                color: currentStep >= 3 ? Colors.black : const Color(0xFF878787),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 346,
-                          top: 174,
-                          child: SizedBox(
-                            width: 35,
-                            height: 19,
-                            child: Text(
-                              'Livré',
-                              style: GoogleFonts.getFont(
-                                'Inter',
-                                color: currentStep >= 4 ? Colors.black : const Color(0xFF878787),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Progress bar container
-                        Positioned(
-                          left: 26,
-                          top: 204,
+                          top: 0,
                           child: Container(
-                            width: 354,
+                            width: 33,
                             height: 33,
-                            child: Stack(
-                              children: [
-                                // Progress lines
-                                // Line 1: From Step 0 to Step 2
-                                Positioned(
-                                  left: 33, // Start after first circle (33px width)
-                                  top: 16, // Center vertically
-                                  child: Container(
-                                    width: 74, // Adjusted width to maintain spacing
-                                    height: 4,
-                                    color: currentStep > 0 ? const Color(0xFFE3B664) : const Color(0xFFE4E4E4),
-                                  ),
-                                ),
-                                // Line 2: From Step 2 to Step 3
-                                Positioned(
-                                  left: 140, // Start after second circle + spacing
-                                  top: 16,
-                                  child: Container(
-                                    width: 74, // Adjusted width
-                                    height: 4,
-                                    color: currentStep > 2 ? const Color(0xFFE3B664) : const Color(0xFFE4E4E4),
-                                  ),
-                                ),
-                                // Line 3: From Step 3 to Step 4
-                                Positioned(
-                                  left: 247, // Start after third circle + spacing
-                                  top: 16,
-                                  child: Container(
-                                    width: 74, // Adjusted width
-                                    height: 4,
-                                    color: currentStep > 3 ? const Color(0xFFE3B664) : const Color(0xFFE4E4E4),
-                                  ),
-                                ),
-
-                                // Step 0 - En cours
-                                if (currentStep == 0)
-                                // Current step - small orange circle
-                                  Positioned(
-                                    left: 6.5, // Center in the 33px container (33-20)/2 = 6.5
-                                    top: 6.5,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  )
-                                else if (currentStep > 0)
-                                // Done step - big orange circle with checkmark
-                                  Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                      child: Center(
-                                        child: Image.network(
-                                          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2F070fd70f-f69f-4a9d-ba62-8f638a445402.png',
-                                          width: 16,
-                                          height: 11,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                // Undone step - big gray circle
-                                  Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          width: 3,
-                                          color: const Color(0xFFE4E4E4),
-                                        ),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                    ),
-                                  ),
-
-                                // Step 2 - Prête
-                                if (currentStep == 2)
-                                // Current step - small orange circle
-                                  Positioned(
-                                    left: 113.5, // 107 + 6.5
-                                    top: 6.5,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  )
-                                else if (currentStep > 2)
-                                // Done step - big orange circle with checkmark
-                                  Positioned(
-                                    left: 107,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                      child: Center(
-                                        child: Image.network(
-                                          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
-                                          width: 16,
-                                          height: 11,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                // Undone step - big gray circle
-                                  Positioned(
-                                    left: 107,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          width: 3,
-                                          color: const Color(0xFFE4E4E4),
-                                        ),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                    ),
-                                  ),
-
-                                // Step 3 - En livraison
-                                if (currentStep == 3)
-                                // Current step - small orange circle
-                                  Positioned(
-                                    left: 220.5, // 214 + 6.5 (corrected alignment)
-                                    top: 6.5, // Centered vertically
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  )
-                                else if (currentStep > 3)
-                                // Done step - big orange circle with checkmark
-                                  Positioned(
-                                    left: 214, // Corrected alignment
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                      child: Center(
-                                        child: Image.network(
-                                          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
-                                          width: 16,
-                                          height: 11,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                // Undone step - big gray circle
-                                  Positioned(
-                                    left: 214, // Corrected alignment
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          width: 3,
-                                          color: const Color(0xFFE4E4E4),
-                                        ),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                    ),
-                                  ),
-
-                                // Step 4 - Livré
-                                if (currentStep == 4 && !isDelivered)
-                                // Current step - small orange circle (only if not delivered)
-                                  Positioned(
-                                    left: 327.5, // 321 + 6.5
-                                    top: 6.5,
-                                    child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                  )
-                                else if (isDelivered || currentStep > 4)
-                                // Done step - big orange circle with checkmark (when delivered)
-                                  Positioned(
-                                    left: 321,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE3B664),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                      child: Center(
-                                        child: Image.network(
-                                          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
-                                          width: 16,
-                                          height: 11,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                // Undone step - big gray circle
-                                  Positioned(
-                                    left: 321,
-                                    top: 0,
-                                    child: Container(
-                                      width: 33,
-                                      height: 33,
-                                      clipBehavior: Clip.hardEdge,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          width: 3,
-                                          color: const Color(0xFFE4E4E4),
-                                        ),
-                                        borderRadius: BorderRadius.circular(17),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // Cancelled message
-                      if (isCancelled)
-                        Positioned(
-                          left: 26,
-                          top: 174,
-                          child: Container(
-                            width: 349,
-                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.red.shade200, width: 2),
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(17),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.cancel, color: Colors.red, size: 40),
-                                const SizedBox(width: 15),
-                                Expanded(
-                                  child: Text(
-                                    'Cette commande a été annulée',
-                                    style: GoogleFonts.getFont(
-                                      'Inter',
-                                      color: Colors.red.shade700,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                      // Status text and date
-                      Positioned(
-                        left: 19,
-                        top: 286,
-                        child: Text(
-                          _getStatusText(status),
-                          style: GoogleFonts.getFont(
-                            'Inter',
-                            color: isCancelled ? Colors.red : const Color(0xFF959595),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 299,
-                        top: 286,
-                        child: Text(
-                          _formatDate(orderData!['createdAt']),
-                          style: GoogleFonts.getFont(
-                            'Inter',
-                            color: const Color(0xFF959595),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-
-                      // Divider
-                      Positioned(
-                        left: 15,
-                        top: 329,
-                        child: Container(
-                          width: 372,
-                          height: 2,
-                          color: const Color(0xFFE4E4E4),
-                        ),
-                      ),
-
-                      // Products header
-                      Positioned(
-                        left: 31,
-                        top: 359,
-                        child: Text(
-                          'Produits',
-                          style: GoogleFonts.getFont(
-                            'Inter',
-                            color: const Color(0xFF3B2E1A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 289,
-                        top: 361,
-                        child: Text(
-                          widget.orderId,
-                          style: GoogleFonts.getFont(
-                            'Inter',
-                            color: const Color(0xFF3B2E1A),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                      // Products list
-                      Positioned(
-                        left: 26,
-                        top: 399,
-                        child: SizedBox(
-                          height: 380,
-                          width: 349,
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: products.length,
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: index < products.length - 1 ? 8 : 0),
-                                child: ConsulterProductCard(
-                                  product: products[index],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-
-                      // Cancel button - show for all states but with different appearance
-                      Positioned(
-                        left: 45,
-                        top: 720,
-                        child: Container(
-                          width: 312,
-                          height: 54,
-                          clipBehavior: Clip.hardEdge,
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            border: Border.all(
-                              width: 3,
-                              color: canCancel ? const Color(0xFFE3B664) : Colors.grey,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: GestureDetector(
-                              onTap: canCancel
-                                  ? () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: Text(
-                                      'Annuler la commande',
-                                      style: GoogleFonts.getFont('Inter'),
-                                    ),
-                                    content: Text(
-                                      'Êtes-vous sûr de vouloir annuler cette commande?',
-                                      style: GoogleFonts.getFont('Inter'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text(
-                                          'Non',
-                                          style: GoogleFonts.getFont('Inter'),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          _cancelOrder();
-                                        },
-                                        child: Text(
-                                          'Oui',
-                                          style: GoogleFonts.getFont(
-                                            'Inter',
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                                  : null,
-                              child: Text(
-                                'Annuler commande',
-                                style: GoogleFonts.getFont(
-                                  'Inter',
-                                  color: canCancel ? const Color(0xFFE3B664) : Colors.grey,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            child: Center(
+                              child: Image.network(
+                                'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
+                                width: 16,
+                                height: 11,
+                                fit: BoxFit.contain,
                               ),
                             ),
+                          ),
+                        )
+                      else
+                        Positioned(
+                          left: 214,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                width: 3,
+                                color: const Color(0xFFE4E4E4),
+                              ),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                          ),
+                        ),
+
+                      // Étape 4 - Livré
+                      if (currentStep == 4)
+                        Positioned(
+                          left: 314,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3B664),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                            child: Center(
+                              child: Image.network(
+                                'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SDsGf5XcaCC7VBLawIP%2Ff88e2924-d76f-4530-a4f8-31a03e6c6936.png',
+                                width: 16,
+                                height: 11,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Positioned(
+                          left: 317,
+                          top: 0,
+                          child: Container(
+                            width: 33,
+                            height: 33,
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              border: Border.all(
+                                width: 3,
+                                color: const Color(0xFFE4E4E4),
+                              ),
+                              borderRadius: BorderRadius.circular(17),
+                            ),
+                          ),
+                        ),
+
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            // Cancelled warning
+            if (isCancelled)
+              Positioned(
+                left: 26,
+                top: 174,
+                child: Container(
+                  width: 349,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.red.shade200, width: 2),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, color: Colors.red, size: 40),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Text(
+                          translations['Cette commande a été annulée'] ??
+                              'Cette commande a été annulée',
+                          style: GoogleFonts.inter(
+                            color: Colors.red.shade700,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -819,8 +665,166 @@ class _EtatCommandePageState extends State<EtatCommandePage> {
                   ),
                 ),
               ),
-            ],
-          ),
+
+            // Status text + date
+            Positioned(
+              left: 19,
+              top: 286,
+              child: Text(
+                _getStatusText(status),
+                style: GoogleFonts.inter(
+                  color: isCancelled
+                      ? Colors.red
+                      : const Color(0xFF959595),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 299,
+              top: 286,
+              child: Text(
+                _formatDate(orderData!['createdAt']),
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF959595),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+
+            // Divider
+            Positioned(
+              left: 15,
+              top: 329,
+              child: Container(
+                width: 372,
+                height: 2,
+                color: const Color(0xFFE4E4E4),
+              ),
+            ),
+
+            // Products title
+            Positioned(
+              left: 31,
+              top: 359,
+              child: Text(
+                translations['Produits'] ?? 'Produits',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF3B2E1A),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 289,
+              top: 361,
+              child: Text(
+                widget.orderId,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF3B2E1A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            // Product list
+            Positioned(
+              left: 26,
+              top: 399,
+              child: SizedBox(
+                height: 380,
+                width: 349,
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                          bottom: index < products.length - 1 ? 8 : 0),
+                      child: ConsulterProductCard(product: products[index]),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // Cancel order button
+            if (!isCancelled)
+              Positioned(
+                left: 45,
+                top: 720,
+                child: Container(
+                  width: 312,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    border: Border.all(
+                      width: 3,
+                      color: canCancel
+                          ? const Color(0xFFE3B664)
+                          : Colors.grey,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: canCancel
+                          ? () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(
+                                translations['Annuler la commande'] ??
+                                    'Annuler la commande',
+                                style: GoogleFonts.inter()),
+                            content: Text(
+                                translations['Êtes-vous sûr de vouloir annuler cette commande?'] ??
+                                    'Êtes-vous sûr de vouloir annuler cette commande?',
+                                style: GoogleFonts.inter()),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(context),
+                                child: Text(
+                                    translations['Non'] ?? 'Non',
+                                    style: GoogleFonts.inter()),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _cancelOrder();
+                                },
+                                child: Text(
+                                  translations['Oui'] ?? 'Oui',
+                                  style: GoogleFonts.inter(
+                                      color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                          : null,
+                      child: Text(
+                        translations['Annuler commande'] ??
+                            'Annuler commande',
+                        style: GoogleFonts.inter(
+                          color: canCancel
+                              ? const Color(0xFFE3B664)
+                              : Colors.grey,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

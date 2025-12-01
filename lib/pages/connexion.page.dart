@@ -36,19 +36,14 @@ class _ConnexionPageState extends State<ConnexionPage> {
       if (userDoc.exists) {
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
 
-        // Save to SharedPreferences including language
+        // Save to SharedPreferences
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('nom', userData['nom'] ?? '');
         await prefs.setString('telephone', userData['telephone'] ?? '');
         await prefs.setString('email', userData['email'] ?? '');
         await prefs.setString('uid', uid);
-
-        // Retrieve language from Firestore, default to Français if not found
-        String selectedLanguage = userData['selectedLanguage'] ?? 'Français';
-        await prefs.setString('selectedLanguage', selectedLanguage);
-
       } else {
-        // If no Firestore data, use Firebase Auth data and set default language
+        // If no Firestore data, use Firebase Auth data
         User? user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -56,11 +51,19 @@ class _ConnexionPageState extends State<ConnexionPage> {
           await prefs.setString('telephone', user.phoneNumber ?? '');
           await prefs.setString('email', user.email ?? '');
           await prefs.setString('uid', uid);
-          await prefs.setString('selectedLanguage', 'Français'); // Default
         }
       }
     } catch (e) {
       print('Error loading user data: $e');
+    }
+  }
+
+  String _getRouteForUser(String email) {
+    // Check if user is admin
+    if (email.toLowerCase() == 'bestmlawi1@gmail.com') {
+      return '/gestion_commandes';
+    } else {
+      return '/home';
     }
   }
 
@@ -93,11 +96,14 @@ class _ConnexionPageState extends State<ConnexionPage> {
           password: password.trim(),
         );
 
-        // Load user data including language preference
+        // Load user data
         await _loadUserData(userCredential.user!.uid);
 
+        // Get the appropriate route based on email
+        String route = _getRouteForUser(userCredential.user!.email ?? '');
+
         Navigator.pop(context); // Remove loading
-        Navigator.pushNamed(context, '/home');
+        Navigator.pushNamed(context, route);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -151,10 +157,13 @@ class _ConnexionPageState extends State<ConnexionPage> {
       Navigator.pop(context); // Remove loading
 
       if (userCredential != null) {
-        // Load user data including language preference
+        // Load user data
         await _loadUserData(userCredential.user!.uid);
 
-        Navigator.pushNamed(context, '/home');
+        // Get the appropriate route based on email
+        String route = _getRouteForUser(userCredential.user!.email ?? '');
+
+        Navigator.pushNamed(context, route);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -208,11 +217,14 @@ class _ConnexionPageState extends State<ConnexionPage> {
         UserCredential userCredential =
         await FirebaseAuth.instance.signInWithCredential(facebookAuthCredential);
 
-        // Load user data including language preference
+        // Load user data
         await _loadUserData(userCredential.user!.uid);
 
+        // Get the appropriate route based on email
+        String route = _getRouteForUser(userCredential.user!.email ?? '');
+
         Navigator.pop(context); // Remove loading
-        Navigator.pushNamed(context, '/home');
+        Navigator.pushNamed(context, route);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

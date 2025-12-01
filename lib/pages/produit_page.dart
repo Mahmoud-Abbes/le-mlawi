@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../config/global_params.dart';
+import '../config/translation_config.dart';
 
 class ProduitPage extends StatefulWidget {
   final int productId;
@@ -17,14 +18,81 @@ class _ProduitPageState extends State<ProduitPage> {
   Set<int> selectedSupplements = {};
   int? selectedDrink;
 
+  // ============================================================================
+  // TRADUCTIONS
+  // ============================================================================
+  Map<String, String> translations = {};
+  bool isLoadingTranslations = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTranslations();
+  }
+
+  Future<void> _loadTranslations() async {
+    final product = GlobalParams.getProductById(widget.productId);
+    if (product == null) return;
+
+    // Liste des clés à traduire
+    final keys = [
+      'Produit non trouvé',
+      'Suppléments',
+      'Boisson',
+      'Total',
+      'Ajouté au panier',
+      'DT',
+      'Voulez-vous des suppléments ?',
+      'Quelque chose à boire ?',
+      'Ajouter au Panier',
+      product['name'], // Nom du produit
+      product['description'], // Description du produit
+      product['deliveryFee'], // Frais de livraison
+      product['deliveryTime'], // Temps de livraison
+    ];
+
+    // Ajouter les noms des suppléments
+    if (product['supplements'] != null) {
+      for (var supplement in product['supplements']) {
+        keys.add(supplement['name']);
+      }
+    }
+
+    // Ajouter les noms des boissons
+    if (product['drinks'] != null) {
+      for (var drink in product['drinks']) {
+        keys.add(drink['name']);
+      }
+    }
+
+    // Ajouter les noms des boissons globales
+    for (var beverage in GlobalParams.beverages) {
+      keys.add(beverage['name']);
+    }
+
+    // Traduire toutes les clés
+    for (var key in keys) {
+      translations[key] = await translate(key);
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoadingTranslations = false;
+      });
+    }
+  }
+
+  // ============================================================================
+  // AJOUT AU PANIER
+  // ============================================================================
   Future<void> _addToCart() async {
     final product = GlobalParams.getProductById(widget.productId);
     if (product == null) return;
 
-    // Calculate total price
+    // Calculer le prix total
     double totalPrice = product['price'];
 
-    // Prepare supplements list with prices
+    // Préparer la liste des suppléments avec prix
     List<Map<String, dynamic>> supplementsList = [];
     if (product['supplements'] != null) {
       for (int index in selectedSupplements) {
@@ -37,7 +105,7 @@ class _ProduitPageState extends State<ProduitPage> {
       }
     }
 
-    // Add drink if selected
+    // Ajouter la boisson si sélectionnée
     Map<String, dynamic>? selectedBeverageData;
     if (selectedDrink != null) {
       selectedBeverageData = {
@@ -47,7 +115,7 @@ class _ProduitPageState extends State<ProduitPage> {
       totalPrice += product['drinks'][0]['price'];
     }
 
-    // Create cart item object
+    // Créer l'objet article du panier
     Map<String, dynamic> cartItem = {
       'productId': widget.productId,
       'productName': product['name'],
@@ -58,10 +126,10 @@ class _ProduitPageState extends State<ProduitPage> {
       'totalPrice': totalPrice,
     };
 
-    // Get SharedPreferences instance
+    // Obtenir l'instance SharedPreferences
     final prefs = await SharedPreferences.getInstance();
 
-    // Get existing cart or create new one
+    // Obtenir le panier existant ou créer un nouveau
     String? cartString = prefs.getString('cart');
     List<dynamic> cart = [];
 
@@ -69,48 +137,51 @@ class _ProduitPageState extends State<ProduitPage> {
       cart = json.decode(cartString);
     }
 
-    // Add new item to cart
+    // Ajouter le nouvel article au panier
     cart.add(cartItem);
 
-    // Save updated cart
+    // Sauvegarder le panier mis à jour
     await prefs.setString('cart', json.encode(cart));
 
-    // Calculate and save cart total
+    // Calculer et sauvegarder le total du panier
     double cartTotal = 0;
     for (var item in cart) {
       cartTotal += item['totalPrice'] * item['quantity'];
     }
     await prefs.setDouble('cartTotal', cartTotal);
 
-    // Show success message
+    // Afficher le message de succès
     if (mounted) {
       String supplementsInfo = '';
       if (supplementsList.isNotEmpty) {
         List supplementNames = supplementsList.map((s) => s['name']).toList();
-        supplementsInfo = '\nSuppléments: ${supplementNames.join(", ")}';
+        supplementsInfo = '\n${translations['Suppléments']}: ${supplementNames.join(", ")}';
       }
 
       String drinkInfo = '';
       if (selectedBeverageData != null) {
-        drinkInfo = '\nBoisson: ${selectedBeverageData['name']}';
+        drinkInfo = '\n${translations['Boisson']}: ${selectedBeverageData['name']}';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Ajouté au panier$supplementsInfo$drinkInfo\nTotal: ${totalPrice.toStringAsFixed(3)} DT',
+            '${translations['Ajouté au panier']}$supplementsInfo$drinkInfo\n${translations['Total']}: ${totalPrice.toStringAsFixed(3)} ${translations['DT']}',
           ),
           backgroundColor: const Color(0xFFA2B84E),
           duration: const Duration(seconds: 2),
         ),
       );
 
-      // Navigate to cart page after a short delay
+      // Naviguer vers la page panier après un court délai
       await Future.delayed(const Duration(milliseconds: 500));
       Navigator.pushNamed(context, '/panier');
     }
   }
 
+  // ============================================================================
+  // INTERFACE UTILISATEUR
+  // ============================================================================
   @override
   Widget build(BuildContext context) {
     final product = GlobalParams.getProductById(widget.productId);
@@ -118,21 +189,22 @@ class _ProduitPageState extends State<ProduitPage> {
     if (product == null) {
       return Scaffold(
         body: Center(
-          child: Text('Produit non trouvé'),
+          child: Text(translations['Produit non trouvé'] ?? 'Produit non trouvé'),
         ),
       );
     }
 
+    // Calculer le prix total
     double totalPrice = product['price'];
 
-    // Add supplement prices
+    // Ajouter les prix des suppléments
     if (product['supplements'] != null) {
       for (int index in selectedSupplements) {
         totalPrice += product['supplements'][index]['price'];
       }
     }
 
-    // Add drink price
+    // Ajouter le prix de la boisson
     if (selectedDrink != null && product['drinks'] != null) {
       totalPrice += product['drinks'][0]['price'];
     }
@@ -141,14 +213,15 @@ class _ProduitPageState extends State<ProduitPage> {
       backgroundColor: const Color(0xFFFFF8EC),
       body: Stack(
         children: [
-          // Main content
+          // Contenu principal
           SingleChildScrollView(
             child: Column(
               children: [
-                // Product image header
+                // En-tête avec image du produit
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Image du produit
                     Image.network(
                       product['image'],
                       width: double.infinity,
@@ -156,7 +229,7 @@ class _ProduitPageState extends State<ProduitPage> {
                       fit: BoxFit.cover,
                     ),
 
-                    // Back button
+                    // Bouton retour
                     Positioned(
                       left: 11,
                       top: 50,
@@ -181,7 +254,7 @@ class _ProduitPageState extends State<ProduitPage> {
                       ),
                     ),
 
-                    // Product name badge
+                    // Badge nom du produit
                     Positioned(
                       left: 11,
                       top: 237,
@@ -196,7 +269,7 @@ class _ProduitPageState extends State<ProduitPage> {
                         ),
                         child: Center(
                           child: Text(
-                            product['name'],
+                            translations[product['name']] ?? product['name'],
                             style: GoogleFonts.getFont(
                               'Inter',
                               color: Colors.black,
@@ -209,7 +282,7 @@ class _ProduitPageState extends State<ProduitPage> {
                       ),
                     ),
 
-                    // White content container overlaying image
+                    // Conteneur blanc qui chevauche l'image
                     Positioned(
                       left: 0,
                       right: 0,
@@ -226,6 +299,7 @@ class _ProduitPageState extends State<ProduitPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            // Note
                             Image.network(
                               'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2F3889c445363a2e27f3fcec92b6bff0902f1c308bstar%201.png?alt=media&token=c95dd053-8e8d-4ecf-8752-9d80acad6205',
                               width: 20,
@@ -242,6 +316,7 @@ class _ProduitPageState extends State<ProduitPage> {
                               ),
                             ),
                             const SizedBox(width: 25),
+                            // Frais de livraison
                             Image.network(
                               'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2Fa6943a88fa2656b3ab80b60e5dcb2e67acdf33c2motorcycle%20(1)%201.png?alt=media&token=e629c188-48f5-46bd-9bf0-8b59251bca4c',
                               width: 24,
@@ -249,7 +324,7 @@ class _ProduitPageState extends State<ProduitPage> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              product['deliveryFee'],
+                              translations[product['deliveryFee']] ?? product['deliveryFee'],
                               style: GoogleFonts.getFont(
                                 'Inter',
                                 color: const Color(0xFFED9D49),
@@ -258,6 +333,7 @@ class _ProduitPageState extends State<ProduitPage> {
                               ),
                             ),
                             const SizedBox(width: 25),
+                            // Temps de livraison
                             Image.network(
                               'https://firebasestorage.googleapis.com/v0/b/codeless-app.appspot.com/o/projects%2F0SDsGf5XcaCC7VBLawIP%2Fbf30ecae59637b455384798e5ada459fbaf3dac3clock%201.png?alt=media&token=c08616cf-6bdd-4dcc-83b3-dacb8e725402',
                               width: 20,
@@ -265,7 +341,7 @@ class _ProduitPageState extends State<ProduitPage> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              product['deliveryTime'],
+                              translations[product['deliveryTime']] ?? product['deliveryTime'],
                               style: GoogleFonts.getFont(
                                 'Inter',
                                 color: const Color(0xFFED9D49),
@@ -280,21 +356,21 @@ class _ProduitPageState extends State<ProduitPage> {
                   ],
                 ),
 
-                // White content container continues
+                // Conteneur blanc continue
                 Container(
                   color: Colors.white,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product details section
+                      // Section détails du produit
                       Padding(
                         padding: const EdgeInsets.all(25),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Product name
+                            // Nom du produit
                             Text(
-                              product['name'],
+                              translations[product['name']] ?? product['name'],
                               style: GoogleFonts.getFont(
                                 'Inter',
                                 color: const Color(0xFF3B2E1A),
@@ -304,9 +380,9 @@ class _ProduitPageState extends State<ProduitPage> {
                             ),
                             const SizedBox(height: 12),
 
-                            // Price
+                            // Prix
                             Text(
-                              '${product['price'].toStringAsFixed(3)} DT',
+                              '${product['price'].toStringAsFixed(3)} ${translations['DT']}',
                               style: GoogleFonts.getFont(
                                 'Inter',
                                 color: Colors.black,
@@ -318,7 +394,7 @@ class _ProduitPageState extends State<ProduitPage> {
 
                             // Description
                             Text(
-                              product['description'],
+                              translations[product['description']] ?? product['description'],
                               style: GoogleFonts.getFont(
                                 'Inter',
                                 color: const Color(0xCC3B2E1A),
@@ -327,10 +403,10 @@ class _ProduitPageState extends State<ProduitPage> {
                             ),
                             const SizedBox(height: 30),
 
-                            // Supplements section
+                            // Section suppléments
                             if (product['supplements'] != null) ...[
                               Text(
-                                'Voulez-vous des suppléments ?',
+                                translations['Voulez-vous des suppléments ?'] ?? 'Voulez-vous des suppléments ?',
                                 style: GoogleFonts.getFont(
                                   'Inter',
                                   color: const Color(0xFF3B2E1A),
@@ -342,8 +418,8 @@ class _ProduitPageState extends State<ProduitPage> {
                               ...List.generate(
                                 product['supplements'].length,
                                     (index) => _buildCheckboxOption(
-                                  product['supplements'][index]['name'],
-                                  '+${product['supplements'][index]['price'].toStringAsFixed(3)} DT',
+                                  translations[product['supplements'][index]['name']] ?? product['supplements'][index]['name'],
+                                  '+${product['supplements'][index]['price'].toStringAsFixed(3)} ${translations['DT']}',
                                   selectedSupplements.contains(index),
                                       () {
                                     setState(() {
@@ -360,10 +436,10 @@ class _ProduitPageState extends State<ProduitPage> {
 
                             const SizedBox(height: 30),
 
-                            // Drinks section
+                            // Section boissons
                             if (product['drinks'] != null) ...[
                               Text(
-                                'Quelque chose à boire ?',
+                                translations['Quelque chose à boire ?'] ?? 'Quelque chose à boire ?',
                                 style: GoogleFonts.getFont(
                                   'Inter',
                                   color: const Color(0xFF3B2E1A),
@@ -372,7 +448,7 @@ class _ProduitPageState extends State<ProduitPage> {
                                 ),
                               ),
                               Text(
-                                product['drinks'][0]['name'],
+                                translations[product['drinks'][0]['name']] ?? product['drinks'][0]['name'],
                                 style: GoogleFonts.getFont(
                                   'Inter',
                                   color: const Color(0xCC3B2E1A),
@@ -381,7 +457,7 @@ class _ProduitPageState extends State<ProduitPage> {
                               ),
                               const SizedBox(height: 20),
 
-                              // Beverage options
+                              // Options de boissons
                               SizedBox(
                                 height: 200,
                                 child: Row(
@@ -389,7 +465,7 @@ class _ProduitPageState extends State<ProduitPage> {
                                   children: List.generate(
                                     GlobalParams.beverages.length,
                                         (index) => _buildBeverageOption(
-                                      GlobalParams.beverages[index]['name'],
+                                      translations[GlobalParams.beverages[index]['name']] ?? GlobalParams.beverages[index]['name'],
                                       GlobalParams.beverages[index]['image'],
                                       index,
                                     ),
@@ -409,7 +485,7 @@ class _ProduitPageState extends State<ProduitPage> {
             ),
           ),
 
-          // Add to cart button (fixed at bottom)
+          // Bouton ajouter au panier (fixé en bas)
           Positioned(
             left: 0,
             right: 0,
@@ -426,7 +502,7 @@ class _ProduitPageState extends State<ProduitPage> {
                 ),
                 onPressed: _addToCart,
                 child: Text(
-                  'Ajouter au Panier',
+                  translations['Ajouter au Panier'] ?? 'Ajouter au Panier',
                   style: GoogleFonts.getFont(
                     'Inter',
                     color: Colors.white,
@@ -442,6 +518,11 @@ class _ProduitPageState extends State<ProduitPage> {
     );
   }
 
+  // ============================================================================
+  // WIDGETS PERSONNALISÉS
+  // ============================================================================
+
+  // Widget option avec case à cocher
   Widget _buildCheckboxOption(
       String label,
       String price,
@@ -498,6 +579,7 @@ class _ProduitPageState extends State<ProduitPage> {
     );
   }
 
+  // Widget option de boisson
   Widget _buildBeverageOption(String name, String imageUrl, int index) {
     bool isSelected = selectedDrink == index;
 
@@ -512,7 +594,7 @@ class _ProduitPageState extends State<ProduitPage> {
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
-                // Container background positioned at bottom
+                // Conteneur arrière-plan positionné en bas
                 Positioned(
                   bottom: 20,
                   child: Container(
@@ -524,7 +606,7 @@ class _ProduitPageState extends State<ProduitPage> {
                     ),
                   ),
                 ),
-                // Image starting from center of container and overflowing upward
+                // Image commençant au centre du conteneur et débordant vers le haut
                 Positioned(
                   bottom: 35,
                   child: Image.network(
@@ -534,7 +616,7 @@ class _ProduitPageState extends State<ProduitPage> {
                     fit: BoxFit.contain,
                   ),
                 ),
-                // Plus/Check button at bottom center - half inside, half outside
+                // Bouton Plus/Check en bas au centre - moitié dedans, moitié dehors
                 Positioned(
                   bottom: 5,
                   child: GestureDetector(
@@ -568,7 +650,7 @@ class _ProduitPageState extends State<ProduitPage> {
             ),
           ),
           const SizedBox(height: 5),
-          // Beverage name
+          // Nom de la boisson
           Text(
             name,
             style: GoogleFonts.getFont(
